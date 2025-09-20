@@ -1,0 +1,34 @@
+{
+  "name": "putting-in-the-work",
+  "version": "1.0.0",
+  "description": "Comprehensive fitness tracking application for families",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run serve",
+    "build": "cd frontend && npm run build",
+    "build:docker": "docker build -t putting-in-the-work .",
+    "deploy": "gcloud run deploy putting-in-the-work --source .",
+    "test": "cd frontend && npm test",
+    "lint": "cd frontend && npm run lint"
+  },
+  "keywords": [
+    "fitness",
+    "tracking",
+    "health",
+    "wellness",
+    "family",
+    "react",
+    "firebase"
+  ],
+  "author": "Jamal Waites <jamal_waites@yahoo.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "workspaces": [
+    "frontend",
+    "backend"
+  ]
+}

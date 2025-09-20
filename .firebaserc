@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "putting-in-the-work"
+  },
+  "targets": {
+    "putting-in-the-work": {
+      "hosting": {
+        "production": [
+          "putting-in-the-work"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
