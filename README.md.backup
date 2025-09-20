@@ -1,0 +1,112 @@
+<<<<<<< HEAD
+# Putting in the Work 💪
+
+> A comprehensive family fitness and wellness tracking application designed to help you become the best version of yourself through data-driven insights and habit tracking.
+
+## 🎯 Vision
+
+Track all the things you need to be the best you - including comprehensive tracking and visualization on a weekly and monthly basis for each user profile. Monitor weight, sleep, meals, workouts, meditation, thinking time, stretching, recovery, reading, studying, blog diary, and various timers for optimal health and wellness.
+
+## ✨ Features
+
+### 📊 Comprehensive Tracking
+- **Physical Health**: Weight, body composition, measurements
+- **Sleep Quality**: Duration, quality ratings, sleep patterns
+- **Nutrition**: Meals, calories, macronutrients, portion tracking
+- **Exercise**: Workouts, duration, intensity, exercise types
+- **Mental Wellness**: Meditation, mood, stress levels
+- **Recovery**: Rest days, stretching, recovery activities
+- **Personal Growth**: Reading, studying, diary entries, goal setting
+
+### ⏱️ Smart Timers
+- **HIIT Intervals**: High-intensity interval training
+- **Tabata**: 20/10 second work/rest cycles
+- **Pomodoro**: 25-minute focus sessions
+- **Stopwatch**: Open-ended activity timing
+- **Countdown**: Custom duration timers
+- **Meditation**: Guided timing sessions
+
+### 📈 Data Visualization
+- **Interactive Charts**: Weight trends, sleep patterns, workout frequency
+- **Progress Tracking**: Weekly and monthly summaries
+- **Trend Analysis**: Visual insights into health patterns
+- **Export Options**: PDF reports and CSV data export
+
+### 🤖 AI-Powered Analytics
+- **Wellness Score**: Dynamic scoring based on multiple health factors
+- **Personalized Insights**: AI-generated suggestions based on your data
+- **Habit Analysis**: Pattern recognition and improvement recommendations
+- **Goal Tracking**: Progress monitoring with intelligent feedback
+
+### 👨‍👩‍👧‍👦 Family Features
+- **Multiple Profiles**: Individual tracking for each family member
+- **Privacy Controls**: Personal data remains private
+- **Family Dashboard**: Aggregated insights and challenges
+- **Age-Appropriate**: Suitable content for all family members
+
+## 🏗️ Technology Stack
+
+### Frontend
+- **React 18** with TypeScript
+- **Material-UI** for modern, accessible components
+- **Duke Blue Theme** for consistent branding
+- **Recharts** for data visualization
+- **Firebase Authentication** for secure login
+
+### Backend
+- **Node.js** with TypeScript
+- **Firebase/Firestore** for real-time database
+- **Cloud Functions** for serverless API
+- **Express.js** for API routing
+
+### Deployment
+- **Docker** containerization
+- **Kubernetes** orchestration
+- **Google Cloud Platform** hosting
+- **Firebase Hosting** for static files
+- **Optimized for <$20/month** budget
+
+## Project Structure
+
+```
+putting-in-the-work/
+├── frontend/          # React application
+├── backend/           # Firebase functions and configuration
+├── deployment/        # Docker and GCP deployment files
+├── docs/             # Documentation
+└── scripts/          # Build and deployment scripts
+```
+
+## Getting Started
+
+### Prerequisites
+- Node.js 18+
+- Docker
+- Google Cloud CLI
+- Firebase CLI
+
+### Local Development
+
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Set up Firebase configuration
+4. Run locally: `npm run dev`
+
+### Deployment
+
+1. Build Docker image: `docker build -t putting-in-the-work .`
+2. Deploy to GCP: `gcloud run deploy`
+
+## Budget Considerations
+
+- Firebase Spark plan (free tier)
+- Google Cloud Run (pay-per-use, minimal cost for low traffic)
+- Total estimated cost: <$20/month for 20 daily visits
+
+## Contact
+
+For questions or support: jdwaites@users.noreply.github.com
+=======
+# put-in-the-work
+360 tracking application
+>>>>>>> eaeedb853940ddf15e937d50984af1f15a78d77d

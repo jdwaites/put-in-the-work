@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can read and write their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Users can read and write their own tracking data
+    match /tracking/{trackingId} {
+      allow read, write: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId;
+    }
+    
+    // Family members can read each other's data (if privacy allows)
+    match /users/{userId} {
+      allow read: if request.auth != null && 
+        isFamilyMember(request.auth.uid, userId);
+    }
+    
+    match /tracking/{trackingId} {
+      allow read: if request.auth != null && 
+        isFamilyMember(request.auth.uid, resource.data.userId) &&
+        getUserPrivacySetting(resource.data.userId) == 'family';
+    }
+    
+    // Helper functions
+    function isFamilyMember(currentUserId, targetUserId) {
+      return exists(/databases/$(database)/documents/users/$(currentUserId)/family/$(targetUserId)) ||
+             exists(/databases/$(database)/documents/users/$(targetUserId)/family/$(currentUserId));
+    }
+    
+    function getUserPrivacySetting(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.settings.privacy;
+    }
+  }
+}

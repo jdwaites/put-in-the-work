@@ -1,0 +1,15 @@
+node_modules/
+*.log
+.env*
+build/
+dist/
+.DS_Store
+coverage/
+.vscode/
+.idea/
+*.tmp
+*.temp
+frontend/server-output.log
+frontend/server.log
+frontend/_temp_disabled/
+.firebase/
