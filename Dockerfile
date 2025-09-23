@@ -24,8 +24,66 @@ RUN echo '{"short_name": "Fitness App","name": "Putting in the Work","start_url"
 # Create a working React app that uses Material-UI like your real app
 RUN echo 'import React from "react"; import ReactDOM from "react-dom/client"; import App from "./App"; const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement); root.render(<React.StrictMode><App /></React.StrictMode>);' > ./frontend/src/index.tsx
 
-# Create App.tsx that resembles your real app structure but works
-RUN echo 'import React, { useState } from "react"; import { ThemeProvider, createTheme } from "@mui/material/styles"; import CssBaseline from "@mui/material/CssBaseline"; import Box from "@mui/material/Box"; import AppBar from "@mui/material/AppBar"; import Toolbar from "@mui/material/Toolbar"; import Typography from "@mui/material/Typography"; import Button from "@mui/material/Button"; import Container from "@mui/material/Container"; import Card from "@mui/material/Card"; import CardContent from "@mui/material/CardContent"; import Grid from "@mui/material/Grid"; const theme = createTheme({ palette: { mode: "light", primary: { main: "#1976d2" }, secondary: { main: "#dc004e" } } }); const HomePage = () => (<Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}><Grid container spacing(3)><Grid item xs={12}><Card><CardContent><Typography variant="h4" gutterBottom>🏋️ Putting in the Work</Typography><Typography variant="body1" paragraph>Your comprehensive fitness tracking application is now live on Google Cloud Run!</Typography><Typography variant="h6" gutterBottom>Available Features:</Typography><Typography component="ul"><li>Profile Management System</li><li>Sports Training Tracking</li><li>Performance Analytics</li><li>Health Integrations</li><li>Exercise Routines</li><li>Performance Diary</li><li>Data Export</li></Typography></CardContent></Card></Grid></Grid></Container>); function App() { const [currentPage, setCurrentPage] = useState("home"); return (<ThemeProvider theme={theme}><CssBaseline /><Box sx={{ flexGrow: 1 }}><AppBar position="static"><Toolbar><Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>Putting in the Work</Typography><Button color="inherit" onClick={() => setCurrentPage("home")}>Home</Button></Toolbar></AppBar><HomePage /></Box></ThemeProvider>); } export default App;' > ./frontend/src/App.tsx
+# Create App.tsx using multiple echo commands for readability
+RUN echo 'import React, { useState } from "react";' > ./frontend/src/App.tsx && \
+    echo 'import { ThemeProvider, createTheme } from "@mui/material/styles";' >> ./frontend/src/App.tsx && \
+    echo 'import CssBaseline from "@mui/material/CssBaseline";' >> ./frontend/src/App.tsx && \
+    echo 'import Box from "@mui/material/Box";' >> ./frontend/src/App.tsx && \
+    echo 'import AppBar from "@mui/material/AppBar";' >> ./frontend/src/App.tsx && \
+    echo 'import Toolbar from "@mui/material/Toolbar";' >> ./frontend/src/App.tsx && \
+    echo 'import Typography from "@mui/material/Typography";' >> ./frontend/src/App.tsx && \
+    echo 'import Button from "@mui/material/Button";' >> ./frontend/src/App.tsx && \
+    echo 'import Container from "@mui/material/Container";' >> ./frontend/src/App.tsx && \
+    echo 'import Card from "@mui/material/Card";' >> ./frontend/src/App.tsx && \
+    echo 'import CardContent from "@mui/material/CardContent";' >> ./frontend/src/App.tsx && \
+    echo 'import Grid from "@mui/material/Grid";' >> ./frontend/src/App.tsx && \
+    echo '' >> ./frontend/src/App.tsx && \
+    echo 'const theme = createTheme({' >> ./frontend/src/App.tsx && \
+    echo '  palette: { mode: "light", primary: { main: "#1976d2" }, secondary: { main: "#dc004e" } }' >> ./frontend/src/App.tsx && \
+    echo '});' >> ./frontend/src/App.tsx && \
+    echo '' >> ./frontend/src/App.tsx && \
+    echo 'function App() {' >> ./frontend/src/App.tsx && \
+    echo '  return (' >> ./frontend/src/App.tsx && \
+    echo '    <ThemeProvider theme={theme}>' >> ./frontend/src/App.tsx && \
+    echo '      <CssBaseline />' >> ./frontend/src/App.tsx && \
+    echo '      <Box sx={{ flexGrow: 1 }}>' >> ./frontend/src/App.tsx && \
+    echo '        <AppBar position="static">' >> ./frontend/src/App.tsx && \
+    echo '          <Toolbar>' >> ./frontend/src/App.tsx && \
+    echo '            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>Putting in the Work</Typography>' >> ./frontend/src/App.tsx && \
+    echo '          </Toolbar>' >> ./frontend/src/App.tsx && \
+    echo '        </AppBar>' >> ./frontend/src/App.tsx && \
+    echo '        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>' >> ./frontend/src/App.tsx && \
+    echo '          <Grid container spacing={3}>' >> ./frontend/src/App.tsx && \
+    echo '            <Grid item xs={12}>' >> ./frontend/src/App.tsx && \
+    echo '              <Card>' >> ./frontend/src/App.tsx && \
+    echo '                <CardContent>' >> ./frontend/src/App.tsx && \
+    echo '                  <Typography variant="h4" gutterBottom>🏋️ Putting in the Work</Typography>' >> ./frontend/src/App.tsx && \
+    echo '                  <Typography variant="body1" paragraph>' >> ./frontend/src/App.tsx && \
+    echo '                    Your comprehensive fitness tracking application is now live on Google Cloud Run!' >> ./frontend/src/App.tsx && \
+    echo '                  </Typography>' >> ./frontend/src/App.tsx && \
+    echo '                  <Typography variant="h6" gutterBottom>Available Features:</Typography>' >> ./frontend/src/App.tsx && \
+    echo '                  <Typography component="div">' >> ./frontend/src/App.tsx && \
+    echo '                    <ul>' >> ./frontend/src/App.tsx && \
+    echo '                      <li>Profile Management System</li>' >> ./frontend/src/App.tsx && \
+    echo '                      <li>Sports Training Tracking</li>' >> ./frontend/src/App.tsx && \
+    echo '                      <li>Performance Analytics</li>' >> ./frontend/src/App.tsx && \
+    echo '                      <li>Health Integrations</li>' >> ./frontend/src/App.tsx && \
+    echo '                      <li>Exercise Routines</li>' >> ./frontend/src/App.tsx && \
+    echo '                      <li>Performance Diary</li>' >> ./frontend/src/App.tsx && \
+    echo '                      <li>Data Export</li>' >> ./frontend/src/App.tsx && \
+    echo '                    </ul>' >> ./frontend/src/App.tsx && \
+    echo '                  </Typography>' >> ./frontend/src/App.tsx && \
+    echo '                </CardContent>' >> ./frontend/src/App.tsx && \
+    echo '              </Card>' >> ./frontend/src/App.tsx && \
+    echo '            </Grid>' >> ./frontend/src/App.tsx && \
+    echo '          </Grid>' >> ./frontend/src/App.tsx && \
+    echo '        </Container>' >> ./frontend/src/App.tsx && \
+    echo '      </Box>' >> ./frontend/src/App.tsx && \
+    echo '    </ThemeProvider>' >> ./frontend/src/App.tsx && \
+    echo '  );' >> ./frontend/src/App.tsx && \
+    echo '}' >> ./frontend/src/App.tsx && \
+    echo '' >> ./frontend/src/App.tsx && \
+    echo 'export default App;' >> ./frontend/src/App.tsx
 
 # Create tsconfig.json
 RUN echo '{"compilerOptions":{"target":"es5","lib":["dom","dom.iterable","es6"],"allowJs":true,"skipLibCheck":true,"esModuleInterop":true,"allowSyntheticDefaultImports":true,"strict":true,"forceConsistentCasingInFileNames":true,"module":"esnext","moduleResolution":"node","resolveJsonModule":true,"isolatedModules":true,"noEmit":true,"jsx":"react-jsx"},"include":["src"]}' > ./frontend/tsconfig.json
