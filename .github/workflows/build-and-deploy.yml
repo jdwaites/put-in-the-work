@@ -1,4 +1,4 @@
-name: Deploy to Cloud Run
+name: Build and Deploy to Cloud Run
 
 on:
   push:
@@ -26,7 +26,6 @@ env:
   
   # Application Configuration
   NODE_ENV: ${{ vars.NODE_ENV || 'production' }}
-  ALLOW_UNAUTHENTICATED: ${{ vars.ALLOW_UNAUTHENTICATED || 'true' }}
 
 jobs:
   deploy:
@@ -81,7 +80,7 @@ jobs:
           region: ${{ env.REGION }}
           image: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE }}/${{ env.SERVICE }}:${{ github.sha }}
           flags: |
-            --allow-unauthenticated=${{ env.ALLOW_UNAUTHENTICATED }}
+            --allow-unauthenticated
             --memory=${{ env.MEMORY }}
             --cpu=${{ env.CPU }}
             --max-instances=${{ env.MAX_INSTANCES }}

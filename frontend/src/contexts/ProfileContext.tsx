@@ -6,14 +6,17 @@ export interface Profile {
   color: string;
   backgroundColor: string;
   textColor: string;
+  isProtected?: boolean;
+  pin?: string;
 }
 
 interface ProfileContextType {
   currentProfile: Profile;
   profiles: Profile[];
-  switchProfile: (profileId: string) => void;
+  switchProfile: (profileId: string, pin?: string) => Promise<boolean>;
   getProfileData: (key: string) => any;
   setProfileData: (key: string, data: any) => void;
+  isProfileLocked: (profileId: string) => boolean;
 }
 
 // Define family profiles with subtle, professional visual identities
@@ -44,7 +47,9 @@ export const PROFILES: Profile[] = [
     name: 'Mal',
     color: '#388E3C', // Professional green
     backgroundColor: 'rgba(56, 142, 60, 0.04)',
-    textColor: '#2E7D32'
+    textColor: '#2E7D32',
+    isProtected: true,
+    pin: '2580' // PIN protected profile
   }
 ];
 
@@ -68,12 +73,27 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
     }
   }, []);
 
-  const switchProfile = (profileId: string) => {
+  const switchProfile = async (profileId: string, pin?: string): Promise<boolean> => {
     const profile = PROFILES.find(p => p.id === profileId);
-    if (profile) {
-      setCurrentProfile(profile);
-      localStorage.setItem('currentProfileId', profileId);
+    if (!profile) {
+      return false;
     }
+
+    // Check if profile is protected
+    if (profile.isProtected && profile.pin) {
+      if (!pin || pin !== profile.pin) {
+        return false; // Authentication failed
+      }
+    }
+
+    setCurrentProfile(profile);
+    localStorage.setItem('currentProfileId', profileId);
+    return true;
+  };
+
+  const isProfileLocked = (profileId: string): boolean => {
+    const profile = PROFILES.find(p => p.id === profileId);
+    return profile?.isProtected === true;
   };
 
   // Get profile-specific data from localStorage
@@ -95,7 +115,8 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       profiles: PROFILES,
       switchProfile,
       getProfileData,
-      setProfileData
+      setProfileData,
+      isProfileLocked
     }}>
       {children}
     </ProfileContext.Provider>

@@ -41,6 +41,19 @@ interface SportsSession {
   quality: number;
 }
 
+interface PlannedWorkout {
+  id: string;
+  sport: 'basketball' | 'football';
+  title: string;
+  description: string;
+  scheduledDate: Date;
+  estimatedDuration: number;
+  categories: string[];
+  participants: string[];
+  coach: string;
+  isCompleted: boolean;
+}
+
 interface TabPanelProps {
   children?: any;
   index: number;

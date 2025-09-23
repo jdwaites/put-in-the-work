@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -21,7 +21,8 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TableRow
+  TableRow,
+  Alert
 } from '@mui/material';
 import {
   PictureAsPdf as PdfIcon,
@@ -34,6 +35,7 @@ import {
   FitnessCenter as WorkoutIcon,
   Star as StarIcon
 } from '@mui/icons-material';
+import { useProfile } from '../contexts/ProfileContext';
 
 interface ReportConfig {
   type: 'weekly' | 'monthly' | 'custom';
@@ -55,6 +57,7 @@ const ReporterPage: React.FC = () => {
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const { getProfileData } = useProfile();
 
   const handleSportChange = (sport: string, checked: boolean) => {
     if (checked) {
@@ -80,52 +83,167 @@ const ReporterPage: React.FC = () => {
     }, 2000);
   };
 
-  // Mock data for demonstration
-  const reportPreview = {
-    title: 'Monthly Training Report',
-    period: 'September 1-30, 2025',
-    summary: {
-      totalSessions: 27,
-      totalTime: '830 minutes',
-      avgQuality: '7.0/10',
-      improvement: '+18%'
-    },
-    sports: {
-      basketball: {
-        sessions: 15,
-        time: 450,
-        topSkills: ['Shooting', 'Dribbling', 'Defense'],
-        improvement: '+15%'
-      },
-      football: {
-        sessions: 12,
-        time: 380,
-        topSkills: ['Route Running', 'Catching', 'Conditioning'],
-        improvement: '+22%'
-      }
-    },
-    achievements: [
-      '7-Day Training Streak',
-      'Quality Master (5 sessions with 9+ rating)',
-      'Consistency Champion'
-    ],
-    goals: {
-      completed: 3,
-      total: 5,
-      details: [
-        { goal: 'Train 20+ times this month', status: 'completed' },
-        { goal: 'Improve shooting quality to 8+', status: 'completed' },
-        { goal: 'Complete football conditioning program', status: 'in-progress' }
-      ]
+  // Calculate real report data
+  const calculateReportData = () => {
+    const sessions = getProfileData('sportsSessions') || [];
+    const plannedWorkouts = getProfileData('plannedWorkouts') || [];
+    
+    // Filter by date range
+    let filteredSessions = sessions;
+    const now = new Date();
+    
+    if (reportConfig.type === 'weekly') {
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      filteredSessions = sessions.filter((s: any) => new Date(s.date) >= weekAgo);
+    } else if (reportConfig.type === 'monthly') {
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      filteredSessions = sessions.filter((s: any) => new Date(s.date) >= monthAgo);
     }
+
+    const basketballSessions = filteredSessions.filter((s: any) => s.sport === 'basketball');
+    const footballSessions = filteredSessions.filter((s: any) => s.sport === 'football');
+    
+    const totalSessions = filteredSessions.length;
+    const totalTime = filteredSessions.reduce((sum: number, s: any) => sum + (s.duration || 0), 0);
+    const avgQuality = totalSessions > 0 
+      ? (filteredSessions.reduce((sum: number, s: any) => sum + (s.quality || 0), 0) / totalSessions).toFixed(1)
+      : '0.0';
+    
+    // Calculate improvement (simplified)
+    const recentSessions = filteredSessions.slice(-5);
+    const olderSessions = filteredSessions.slice(0, -5);
+    let improvement = '0%';
+    if (olderSessions.length > 0 && recentSessions.length > 0) {
+      const recentAvg = recentSessions.reduce((sum: number, s: any) => sum + (s.quality || 0), 0) / recentSessions.length;
+      const olderAvg = olderSessions.reduce((sum: number, s: any) => sum + (s.quality || 0), 0) / olderSessions.length;
+      const improvementPercent = Math.round((recentAvg - olderAvg) / olderAvg * 100);
+      improvement = `${improvementPercent > 0 ? '+' : ''}${improvementPercent}%`;
+    }
+
+    const getTopSkills = (sportSessions: any[]) => {
+      const skillCounts: { [key: string]: number } = {};
+      sportSessions.forEach(s => {
+        if (s.skills && Array.isArray(s.skills)) {
+          s.skills.forEach((skill: string) => {
+            skillCounts[skill] = (skillCounts[skill] || 0) + 1;
+          });
+        }
+      });
+      return Object.entries(skillCounts)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 3)
+        .map(([skill]) => skill);
+    };
+
+    const completedWorkouts = plannedWorkouts.filter((w: any) => w.isCompleted).length;
+    
+    return {
+      title: `${reportConfig.type.charAt(0).toUpperCase() + reportConfig.type.slice(1)} Training Report`,
+      period: reportConfig.type === 'weekly' ? 'Last 7 Days' : 'Last 30 Days',
+      summary: {
+        totalSessions,
+        totalTime: `${totalTime} minutes`,
+        avgQuality: `${avgQuality}/10`,
+        improvement
+      },
+      sports: {
+        basketball: {
+          sessions: basketballSessions.length,
+          time: basketballSessions.reduce((sum: number, s: any) => sum + (s.duration || 0), 0),
+          topSkills: getTopSkills(basketballSessions),
+          improvement: basketballSessions.length > 0 ? improvement : '0%'
+        },
+        football: {
+          sessions: footballSessions.length,
+          time: footballSessions.reduce((sum: number, s: any) => sum + (s.duration || 0), 0),
+          topSkills: getTopSkills(footballSessions),
+          improvement: footballSessions.length > 0 ? improvement : '0%'
+        }
+      },
+      achievements: [
+        totalSessions >= 7 ? `${totalSessions} Training Sessions` : null,
+        filteredSessions.filter((s: any) => (s.quality || 0) >= 9).length >= 3 ? 'Quality Master (3+ sessions with 9+ rating)' : null,
+        completedWorkouts > 0 ? 'Goal Achiever' : null
+      ].filter(Boolean),
+      goals: {
+        completed: completedWorkouts,
+        total: plannedWorkouts.length,
+        details: plannedWorkouts.slice(0, 3).map((w: any) => ({
+          goal: w.title || 'Workout Goal',
+          status: w.isCompleted ? 'completed' : 'in-progress'
+        }))
+      }
+    };
   };
 
-  const recentReports = [
-    { name: 'August 2025 Monthly Report', date: '2025-09-01', type: 'Monthly', size: '2.3 MB' },
-    { name: 'Basketball Skills Assessment', date: '2025-08-25', type: 'Custom', size: '1.8 MB' },
-    { name: 'Weekly Progress - Week 34', date: '2025-08-20', type: 'Weekly', size: '950 KB' },
-    { name: 'Football Training Analysis', date: '2025-08-15', type: 'Custom', size: '1.2 MB' }
-  ];
+  const reportPreview = calculateReportData();
+  const hasData = (getProfileData('sportsSessions') || []).length > 0;
+
+  // Generate recent reports from actual data
+  const recentReports = useMemo(() => {
+    if (!hasData) return [];
+    
+    const sessions = getProfileData('sportsSessions') || [];
+    const reports = [];
+    const now = new Date();
+    const currentMonth = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+    
+    // Add monthly report if data exists
+    const sessionsThisMonth = sessions.filter((session: any) => {
+      const sessionDate = new Date(session.date);
+      return sessionDate.getMonth() === now.getMonth() && sessionDate.getFullYear() === now.getFullYear();
+    });
+    
+    if (sessionsThisMonth.length > 0) {
+      reports.push({
+        name: `${currentMonth} Training Report`,
+        date: now.toISOString().split('T')[0],
+        type: 'Monthly',
+        size: `${Math.max(1, Math.ceil(sessionsThisMonth.length * 0.3))} MB`
+      });
+    }
+    
+    // Add weekly report if recent sessions exist
+    const lastWeekSessions = sessions.filter((session: any) => {
+      const sessionDate = new Date(session.date);
+      const weekAgo = new Date(now);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      return sessionDate >= weekAgo;
+    });
+    
+    if (lastWeekSessions.length > 0) {
+      const weekNumber = Math.ceil((now.getDate() + new Date(now.getFullYear(), now.getMonth(), 1).getDay()) / 7);
+      reports.push({
+        name: `Weekly Progress - Week ${weekNumber}`,
+        date: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        type: 'Weekly',
+        size: `${Math.max(1, Math.ceil(lastWeekSessions.length * 0.2))} MB`
+      });
+    }
+    
+    // Add sport-specific reports if enough data exists
+    const basketballSessions = sessions.filter((s: any) => s.sport === 'basketball');
+    if (basketballSessions.length > 5) {
+      reports.push({
+        name: 'Basketball Skills Analysis',
+        date: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        type: 'Custom',
+        size: `${Math.ceil(basketballSessions.length * 0.1)} MB`
+      });
+    }
+    
+    const footballSessions = sessions.filter((s: any) => s.sport === 'football');
+    if (footballSessions.length > 5) {
+      reports.push({
+        name: 'Football Training Analysis',
+        date: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        type: 'Custom',
+        size: `${Math.ceil(footballSessions.length * 0.1)} MB`
+      });
+    }
+    
+    return reports.slice(0, 4); // Limit to 4 most recent
+  }, [hasData, getProfileData]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -135,6 +253,12 @@ const ReporterPage: React.FC = () => {
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
         Generate comprehensive training reports to track progress and share achievements
       </Typography>
+
+      {!hasData && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          No training data available for reports. Start logging your basketball and football sessions in the Sports Training page to generate meaningful reports!
+        </Alert>
+      )}
 
       <Grid container spacing={3}>
         {/* Report Configuration */}
@@ -398,19 +522,24 @@ const ReporterPage: React.FC = () => {
               <Typography variant="h6" gutterBottom>
                 Recent Reports
               </Typography>
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Report Name</TableCell>
-                      <TableCell>Type</TableCell>
-                      <TableCell>Date Created</TableCell>
-                      <TableCell>Size</TableCell>
-                      <TableCell>Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {recentReports.map((report, index) => (
+              {recentReports.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
+                  No reports generated yet. Generate your first report to see it here.
+                </Typography>
+              ) : (
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Report Name</TableCell>
+                        <TableCell>Type</TableCell>
+                        <TableCell>Date Created</TableCell>
+                        <TableCell>Size</TableCell>
+                        <TableCell>Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {recentReports.map((report, index) => (
                       <TableRow key={index}>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -433,6 +562,7 @@ const ReporterPage: React.FC = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
+              )}
             </CardContent>
           </Card>
         </Grid>
