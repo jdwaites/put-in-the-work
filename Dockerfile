@@ -32,6 +32,12 @@ COPY frontend/src/pages/HealthIntegrationsPage.tsx ./frontend/src/pages/
 COPY frontend/src/pages/ExerciseRoutinesPage.tsx ./frontend/src/pages/
 COPY frontend/src/pages/PerformanceDiaryPage.tsx ./frontend/src/pages/
 
+# Create DataManagementPage with data reset functionality
+RUN echo 'import React from "react"; import { Container, Typography, Button, Grid, Card, CardContent } from "@mui/material"; import { DeleteSweep as ResetIcon } from "@mui/icons-material"; const DataManagementPage = () => { const handleResetAll = () => { if (window.confirm("This will delete ALL fitness data. This cannot be undone. Are you sure?")) { localStorage.clear(); alert("All data has been reset! Please refresh the page."); window.location.reload(); } }; return ( <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}> <Typography variant="h4" gutterBottom>Data Management</Typography> <Grid container spacing={3}> <Grid item xs={12}> <Card> <CardContent> <Typography variant="h6" gutterBottom>Reset All Data</Typography> <Typography variant="body2" color="text.secondary" paragraph> This will permanently delete all your fitness tracking data including workouts, nutrition, sleep, and diary entries. </Typography> <Button variant="contained" color="error" startIcon={<ResetIcon />} onClick={handleResetAll}> Reset All Data </Button> </CardContent> </Card> </Grid> </Grid> </Container> ); }; export default DataManagementPage;' > ./frontend/src/pages/DataManagementPage.tsx
+
+# Create simplified dataReset utility
+RUN echo 'export const resetAllData = () => { localStorage.clear(); }; export const quickResets = { freshStart: () => { if (window.confirm("Reset all data? This cannot be undone.")) { localStorage.clear(); window.location.reload(); } } };' > ./frontend/src/utils/dataReset.ts
+
 # Create a simple TimersPage to replace the corrupted one
 RUN echo 'import React from "react"; import { Typography, Container } from "@mui/material"; const TimersPage = () => ( <Container><Typography variant="h4">Timers & Stopwatch</Typography><Typography>Timer functionality coming soon...</Typography></Container> ); export default TimersPage;' > ./frontend/src/pages/TimersPage.tsx
 

@@ -15,6 +15,7 @@ import HealthIntegrationsPage from './pages/HealthIntegrationsPage';
 import ExerciseRoutinesPage from './pages/ExerciseRoutinesPage';
 import PerformanceDiaryPage from './pages/PerformanceDiaryPage';
 import DataExportPage from './pages/DataExportPage';
+import DataManagementPage from './pages/DataManagementPage';
 
 const theme = createTheme({
   palette: {
@@ -50,6 +51,8 @@ const AppContent: React.FC = () => {
         return <PerformanceDiaryPage />;
       case 'export':
         return <DataExportPage />;
+      case 'data-management':
+        return <DataManagementPage />;
       default:
         return <HomePage onPageChange={setCurrentPage} />;
     }
