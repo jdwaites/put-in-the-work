@@ -180,10 +180,10 @@ const HealthIntegrationsPage: React.FC = () => {
         Health App Integrations
       </Typography>
       
-      <Alert severity="info" sx={{ mb: 3 }}>
+      <Alert severity="warning" sx={{ mb: 3 }}>
         <Typography variant="body2">
-          Connect your health apps to automatically sync fitness data. This is a demo implementation - 
-          in production, you would need to register your app with each service's developer console.
+          <strong>Feature Not Yet Implemented:</strong> Health app integrations are not currently functional. 
+          This interface is for demonstration purposes. Manual data entry through Sports Training is currently available.
         </Typography>
       </Alert>
 
