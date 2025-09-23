@@ -16,63 +16,15 @@ RUN cd frontend && npm ci
 RUN mkdir -p ./frontend/src ./frontend/public
 
 # Create a working index.html
-RUN echo '<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Putting in the Work</title>
-  </head>
-  <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
-  </body>
-</html>' > ./frontend/public/index.html
+RUN echo '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Putting in the Work</title></head><body><noscript>You need to enable JavaScript to run this app.</noscript><div id="root"></div></body></html>' > ./frontend/public/index.html
 
 # Create manifest.json
-RUN echo '{
-  "short_name": "Fitness App",
-  "name": "Putting in the Work",
-  "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
-}' > ./frontend/public/manifest.json
+RUN echo '{"short_name": "Fitness App","name": "Putting in the Work","start_url": ".","display": "standalone","theme_color": "#000000","background_color": "#ffffff"}' > ./frontend/public/manifest.json
 
 # Create a simple working React app
-RUN echo 'import React from "react";
-import ReactDOM from "react-dom/client";
-import App from "./App";
+RUN echo 'import React from "react"; import ReactDOM from "react-dom/client"; import App from "./App"; const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement); root.render(<React.StrictMode><App /></React.StrictMode>);' > ./frontend/src/index.tsx
 
-const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);' > ./frontend/src/index.tsx
-
-RUN echo 'import React from "react";
-
-function App() {
-  return (
-    <div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
-      <h1>🏋️ Putting in the Work</h1>
-      <p>Your fitness tracking application is live!</p>
-      <p>✅ Successfully deployed to Google Cloud Run</p>
-      <p>🚀 Ready for your full application code</p>
-      <div style={{ marginTop: "20px", padding: "10px", backgroundColor: "#f0f0f0", borderRadius: "5px" }}>
-        <h3>Next Steps:</h3>
-        <ul>
-          <li>Update Dockerfile to include your full React application</li>
-          <li>Deploy your complete fitness tracking features</li>
-          <li>Configure any required environment variables</li>
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-export default App;' > ./frontend/src/App.tsx
+RUN echo 'import React from "react"; function App() { return (<div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}><h1>🏋️ Putting in the Work</h1><p>Your fitness tracking application is live!</p><p>✅ Successfully deployed to Google Cloud Run</p><p>🚀 Ready for your full application code</p><div style={{ marginTop: "20px", padding: "10px", backgroundColor: "#f0f0f0", borderRadius: "5px" }}><h3>Next Steps:</h3><ul><li>Update Dockerfile to include your full React application</li><li>Deploy your complete fitness tracking features</li><li>Configure any required environment variables</li></ul></div></div>); } export default App;' > ./frontend/src/App.tsx
 
 # Build the React app
 RUN cd frontend && npm run build
