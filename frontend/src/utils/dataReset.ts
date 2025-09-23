@@ -18,200 +18,121 @@ export interface ResetOptions {
 /**
  * Reset all localStorage data for the app
  */
-export const resetAllData = (): void => {
-  const keys = Object.keys(localStorage);
-  const appKeys = keys.filter(key => 
-    key.startsWith('putting-in-the-work') || 
-    key.includes('fitness') || 
-    key.includes('workout') ||
-    key.includes('profile') ||
-    key.includes('diary') ||
-    key.includes('nutrition') ||
-    key.includes('sleep')
-  );
-  
-  appKeys.forEach(key => localStorage.removeItem(key));
-  
-  // Also clear any specific app keys we know about
-  const specificKeys = [
-    'currentProfile',
-    'profileData',
-    'workoutHistory',
-    'nutritionData',
-    'sleepData',
-    'diaryEntries',
-    'exerciseRoutines',
-    'userPreferences',
-    'goals',
-    'achievements'
-  ];
-  
-  specificKeys.forEach(key => localStorage.removeItem(key));
-};
-
-/**
- * Reset specific types of data based on options
- */
-export const resetSelectedData = (options: ResetOptions): void => {
-  if (options.all) {
-    resetAllData();
-    return;
-  }
-
-  if (options.profiles) {
-    localStorage.removeItem('currentProfile');
-    localStorage.removeItem('profileData');
-  }
-
-  if (options.workouts) {
-    localStorage.removeItem('workoutHistory');
-    localStorage.removeItem('workoutEntries');
-    // Clear workout data for all profiles
-    const profiles = ['michael', 'mekhi', 'maya', 'jamal'];
-    profiles.forEach(profile => {
-      localStorage.removeItem(`${profile}_workouts`);
-      localStorage.removeItem(`${profile}_exercises`);
-    });
-  }
-
-  if (options.nutrition) {
-    localStorage.removeItem('nutritionData');
-    localStorage.removeItem('mealEntries');
-    const profiles = ['michael', 'mekhi', 'maya', 'jamal'];
-    profiles.forEach(profile => {
-      localStorage.removeItem(`${profile}_nutrition`);
-      localStorage.removeItem(`${profile}_meals`);
-    });
-  }
-
-  if (options.sleep) {
-    localStorage.removeItem('sleepData');
-    localStorage.removeItem('sleepEntries');
-    const profiles = ['michael', 'mekhi', 'maya', 'jamal'];
-    profiles.forEach(profile => {
-      localStorage.removeItem(`${profile}_sleep`);
-    });
-  }
-
-  if (options.diary) {
-    localStorage.removeItem('diaryEntries');
-    const profiles = ['michael', 'mekhi', 'maya', 'jamal'];
-    profiles.forEach(profile => {
-      localStorage.removeItem(`${profile}_diary`);
-    });
-  }
-
-  if (options.routines) {
-    localStorage.removeItem('exerciseRoutines');
-    localStorage.removeItem('customRoutines');
-  }
-
-  if (options.goals) {
-    localStorage.removeItem('goals');
-    localStorage.removeItem('achievements');
-    const profiles = ['michael', 'mekhi', 'maya', 'jamal'];
-    profiles.forEach(profile => {
-      localStorage.removeItem(`${profile}_goals`);
-    });
-  }
-
-  if (options.preferences) {
-    localStorage.removeItem('userPreferences');
-    localStorage.removeItem('appSettings');
+export const resetAllData = (): Promise<boolean> => {
+  try {
+    localStorage.clear();
+    sessionStorage.clear();
+    return Promise.resolve(true);
+  } catch (error) {
+    console.error('Error resetting all data:', error);
+    return Promise.resolve(false);
   }
 };
 
 /**
- * Get confirmation before resetting data
+ * Reset selected data based on options
  */
-export const confirmAndReset = async (
-  options: ResetOptions, 
-  customMessage?: string
-): Promise<boolean> => {
-  const message = customMessage || 
-    `This will permanently delete ${options.all ? 'ALL' : 'selected'} fitness data. This cannot be undone. Are you sure?`;
-  
-  const confirmed = window.confirm(message);
-  
-  if (confirmed) {
-    resetSelectedData(options);
-    
-    // Show success message
-    alert('Data has been reset successfully! Please refresh the page to start fresh.');
-    
-    // Optionally reload the page to ensure clean state
-    window.location.reload();
-    
-    return true;
-  }
-  
-  return false;
-};
-
-/**
- * Export data before reset (backup functionality)
- */
-export const exportDataBeforeReset = (): string => {
-  const allData: Record<string, any> = {};
-  
-  // Export all localStorage data
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key) {
-      try {
-        allData[key] = JSON.parse(localStorage.getItem(key) || '');
-      } catch {
-        allData[key] = localStorage.getItem(key);
-      }
+export const resetSelectedData = async (options: ResetOptions): Promise<boolean> => {
+  try {
+    if (options.all) {
+      return await resetAllData();
     }
+
+    // Reset specific data types
+    const keys = Object.keys(localStorage);
+    
+    keys.forEach(key => {
+      if (options.profiles && key.includes('profile')) {
+        localStorage.removeItem(key);
+      }
+      if (options.workouts && (key.includes('workout') || key.includes('exercise'))) {
+        localStorage.removeItem(key);
+      }
+      if (options.nutrition && (key.includes('nutrition') || key.includes('meal'))) {
+        localStorage.removeItem(key);
+      }
+      if (options.sleep && key.includes('sleep')) {
+        localStorage.removeItem(key);
+      }
+      if (options.diary && key.includes('diary')) {
+        localStorage.removeItem(key);
+      }
+      if (options.routines && key.includes('routine')) {
+        localStorage.removeItem(key);
+      }
+      if (options.goals && key.includes('goal')) {
+        localStorage.removeItem(key);
+      }
+      if (options.preferences && (key.includes('preference') || key.includes('setting'))) {
+        localStorage.removeItem(key);
+      }
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Error resetting selected data:', error);
+    return false;
   }
-  
-  const backup = {
-    exportDate: new Date().toISOString(),
-    appVersion: '1.0.0',
-    data: allData
-  };
-  
-  return JSON.stringify(backup, null, 2);
 };
 
 /**
- * Download backup file
+ * Export data before reset (creates downloadable backup)
  */
-export const downloadBackup = (): void => {
-  const backup = exportDataBeforeReset();
-  const blob = new Blob([backup], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `fitness-data-backup-${new Date().toISOString().split('T')[0]}.json`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  
-  URL.revokeObjectURL(url);
+export const exportDataBeforeReset = async (): Promise<void> => {
+  try {
+    const data: Record<string, string> = {};
+    const keys = Object.keys(localStorage);
+    
+    keys.forEach(key => {
+      data[key] = localStorage.getItem(key) || '';
+    });
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fitness-data-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Error exporting data:', error);
+  }
 };
 
 /**
- * Quick reset functions for different scenarios
+ * Download backup of current data
+ */
+export const downloadBackup = async (): Promise<void> => {
+  await exportDataBeforeReset();
+};
+
+/**
+ * Quick reset functions for common scenarios
  */
 export const quickResets = {
-  // Reset everything - fresh start
-  freshStart: () => confirmAndReset({ all: true }),
+  freshStart: async (): Promise<void> => {
+    const confirmed = window.confirm('Reset all data? This cannot be undone.');
+    if (confirmed) {
+      await resetAllData();
+      window.location.reload();
+    }
+  },
   
-  // Reset just workout data
-  workoutsOnly: () => confirmAndReset({ workouts: true }),
+  clearWorkouts: async (): Promise<void> => {
+    const confirmed = window.confirm('Clear all workout data? This cannot be undone.');
+    if (confirmed) {
+      await resetSelectedData({ workouts: true });
+      window.location.reload();
+    }
+  },
   
-  // Reset diary and mood tracking
-  diaryOnly: () => confirmAndReset({ diary: true }),
-  
-  // Reset nutrition tracking
-  nutritionOnly: () => confirmAndReset({ nutrition: true }),
-  
-  // Reset with backup
-  resetWithBackup: () => {
-    downloadBackup();
-    setTimeout(() => confirmAndReset({ all: true }), 1000);
+  clearProfiles: async (): Promise<void> => {
+    const confirmed = window.confirm('Clear all profile data? This cannot be undone.');
+    if (confirmed) {
+      await resetSelectedData({ profiles: true });
+      window.location.reload();
+    }
   }
 };
