@@ -27,6 +27,7 @@ COPY frontend/src/pages/HomePage.tsx ./frontend/src/pages/
 COPY frontend/src/pages/AnalyzerPage.tsx ./frontend/src/pages/
 COPY frontend/src/pages/ReporterPage.tsx ./frontend/src/pages/
 COPY frontend/src/pages/SportsTrainingPage.tsx ./frontend/src/pages/
+COPY frontend/src/pages/WorkoutPlanningPage.tsx ./frontend/src/pages/
 COPY frontend/src/pages/DataExportPage.tsx ./frontend/src/pages/
 COPY frontend/src/pages/HealthIntegrationsPage.tsx ./frontend/src/pages/
 COPY frontend/src/pages/ExerciseRoutinesPage.tsx ./frontend/src/pages/
