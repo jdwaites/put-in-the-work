@@ -34,6 +34,11 @@ Thumbs.db
 *.tmp
 *~
 
+# Log files
+*.log
+server-output.log
+server.log
+
 # Large image files (keep smaller ones if needed)
 *.jpg
 *.jpeg

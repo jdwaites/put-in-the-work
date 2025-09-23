@@ -1,4 +1,4 @@
-﻿// Profile System Update - Sept 20, 2025
+// Profile System Update - Sept 20, 2025
 import React, { useState } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';

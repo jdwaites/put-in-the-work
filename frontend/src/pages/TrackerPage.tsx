@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Box, Typography, Card, CardContent } from '@mui/material';
 
 const TrackerPage: React.FC = () => {
