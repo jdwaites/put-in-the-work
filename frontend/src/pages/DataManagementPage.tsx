@@ -56,40 +56,36 @@ const DataManagementPage: React.FC = () => {
     }
   };
 
-  const handleResetAll = () => {
-    try {
-      // Clear all localStorage data
-      localStorage.clear();
-      
-      // Clear session storage as well
-      sessionStorage.clear();
-      
-      alert('All data has been reset successfully! The page will now refresh.');
-      
-      // Refresh the page to reset the app state
-      window.location.reload();
-    } catch (error) {
-      console.error('Reset error:', error);
-      alert('An error occurred during reset. Please try again.');
-    }
-  };
-
   const handleConfirmReset = () => {
-    const confirmed = window.confirm(
-      'This will permanently delete ALL fitness data including profiles, workouts, nutrition, sleep, and diary entries. This cannot be undone. Are you sure?'
-    );
-    
-    if (confirmed) {
-      const doubleConfirmed = window.confirm(
-        'Final confirmation: You are about to delete ALL data. This action is irreversible. Continue?'
+    try {
+      const confirmed = window.confirm(
+        'This will permanently delete ALL fitness data including profiles, workouts, nutrition, sleep, and diary entries. This cannot be undone. Are you sure?'
       );
       
-      if (doubleConfirmed) {
-        handleResetAll();
+      if (confirmed) {
+        const doubleConfirmed = window.confirm(
+          'FINAL WARNING: You are about to delete ALL data. This action is irreversible. Continue?'
+        );
+        
+        if (doubleConfirmed) {
+          // Clear all data immediately
+          localStorage.clear();
+          sessionStorage.clear();
+          
+          // Show success message
+          alert('All data has been reset successfully! Redirecting to home...');
+          
+          // Force redirect to home page to reset everything
+          window.location.href = window.location.origin;
+        }
       }
+      
+      setResetDialogOpen(false);
+    } catch (error) {
+      console.error('Reset confirmation error:', error);
+      alert('An error occurred. Please try again.');
+      setResetDialogOpen(false);
     }
-    
-    setResetDialogOpen(false);
   };
 
   // If not authenticated, show authentication dialog
@@ -154,7 +150,7 @@ const DataManagementPage: React.FC = () => {
 
   // Authenticated admin interface
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 12 }}>
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" gutterBottom>
           Data Management

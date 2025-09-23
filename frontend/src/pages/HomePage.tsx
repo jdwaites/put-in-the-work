@@ -11,7 +11,9 @@ import {
   Container,
   Paper,
   IconButton,
-  Fade
+  Fade,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import {
   SportsBasketball as BasketballIcon,
@@ -20,7 +22,12 @@ import {
   TrendingUp as ProgressIcon,
   Star as StarIcon,
   Refresh as RefreshIcon,
-  PlayArrow as PlayIcon
+  PlayArrow as PlayIcon,
+  Healing as HealthIcon,
+  EventNote as RoutinesIcon,
+  BookOnline as DiaryIcon,
+  GetApp as ExportIcon,
+  Assessment as ReporterIcon
 } from '@mui/icons-material';
 import { useProfile } from '../contexts/ProfileContext';
 
@@ -83,6 +90,8 @@ const inspirationalQuotes = [
 ];
 
 const HomePage: React.FC<HomePageProps> = ({ onPageChange }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { currentProfile, getProfileData } = useProfile();
   const [currentQuote, setCurrentQuote] = useState(0);
   const [fade, setFade] = useState(true);
@@ -599,6 +608,98 @@ const HomePage: React.FC<HomePageProps> = ({ onPageChange }) => {
             </CardContent>
           </Card>
         </Grid>
+        
+        {/* Additional features for mobile access */}
+        {isMobile && (
+          <>
+            <Grid item xs={12} sm={6}>
+              <Card 
+                elevation={3} 
+                sx={{ 
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s',
+                  '&:hover': { transform: 'translateY(-4px)' }
+                }}
+                onClick={() => onPageChange('health')}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                  <HealthIcon sx={{ fontSize: 50, color: '#f44336', mb: 1 }} />
+                  <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    Health Integrations
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Connect health apps and devices
+                  </Typography>
+                  <Button 
+                    variant="outlined" 
+                    size="small"
+                    onClick={(e) => { e.stopPropagation(); onPageChange('health'); }}
+                  >
+                    Open
+                  </Button>
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} sm={6}>
+              <Card 
+                elevation={3} 
+                sx={{ 
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s',
+                  '&:hover': { transform: 'translateY(-4px)' }
+                }}
+                onClick={() => onPageChange('routines')}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                  <RoutinesIcon sx={{ fontSize: 50, color: '#ff5722', mb: 1 }} />
+                  <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    Exercise Routines
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Manage workout routines
+                  </Typography>
+                  <Button 
+                    variant="outlined" 
+                    size="small"
+                    onClick={(e) => { e.stopPropagation(); onPageChange('routines'); }}
+                  >
+                    Open
+                  </Button>
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} sm={6}>
+              <Card 
+                elevation={3} 
+                sx={{ 
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s',
+                  '&:hover': { transform: 'translateY(-4px)' }
+                }}
+                onClick={() => onPageChange('export')}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                  <ExportIcon sx={{ fontSize: 50, color: '#607d8b', mb: 1 }} />
+                  <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    Data Export
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Export your fitness data
+                  </Typography>
+                  <Button 
+                    variant="outlined" 
+                    size="small"
+                    onClick={(e) => { e.stopPropagation(); onPageChange('export'); }}
+                  >
+                    Open
+                  </Button>
+                </CardContent>
+              </Card>
+            </Grid>
+          </>
+        )}
       </Grid>
     </Container>
   );
