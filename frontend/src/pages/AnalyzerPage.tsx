@@ -114,7 +114,7 @@ const AnalyzerPage: React.FC = () => {
       if (olderSessions.length > 0 && recentSessions.length > 0) {
         const recentAvg = recentSessions.reduce((sum, s) => sum + (s.quality || 0), 0) / recentSessions.length;
         const olderAvg = olderSessions.reduce((sum, s) => sum + (s.quality || 0), 0) / olderSessions.length;
-        const improvementPercent = ((recentAvg - olderAvg) / olderAvg * 100).toFixed(0);
+        const improvementPercent = Math.round((recentAvg - olderAvg) / olderAvg * 100);
         improvement = `${improvementPercent > 0 ? '+' : ''}${improvementPercent}%`;
       }
 
