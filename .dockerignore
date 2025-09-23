@@ -27,6 +27,13 @@ Thumbs.db
 # Windows Zone Identifier files
 *.Zone.Identifier
 
+# Backup and temporary files
+*.backup
+*.with-data
+*.bak
+*.tmp
+*~
+
 # Large image files (keep smaller ones if needed)
 *.jpg
 *.jpeg
