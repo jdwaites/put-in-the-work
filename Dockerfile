@@ -26,6 +26,9 @@ RUN echo 'import React from "react"; import ReactDOM from "react-dom/client"; im
 
 RUN echo 'import React from "react"; function App() { return (<div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}><h1>🏋️ Putting in the Work</h1><p>Your fitness tracking application is live!</p><p>✅ Successfully deployed to Google Cloud Run</p><p>🚀 Ready for your full application code</p><div style={{ marginTop: "20px", padding: "10px", backgroundColor: "#f0f0f0", borderRadius: "5px" }}><h3>Next Steps:</h3><ul><li>Update Dockerfile to include your full React application</li><li>Deploy your complete fitness tracking features</li><li>Configure any required environment variables</li></ul></div></div>); } export default App;' > ./frontend/src/App.tsx
 
+# Create tsconfig.json
+RUN echo '{"compilerOptions":{"target":"es5","lib":["dom","dom.iterable","es6"],"allowJs":true,"skipLibCheck":true,"esModuleInterop":true,"allowSyntheticDefaultImports":true,"strict":true,"forceConsistentCasingInFileNames":true,"module":"esnext","moduleResolution":"node","resolveJsonModule":true,"isolatedModules":true,"noEmit":true,"jsx":"react-jsx"},"include":["src"]}' > ./frontend/tsconfig.json
+
 # Build the React app
 RUN cd frontend && npm run build
 
