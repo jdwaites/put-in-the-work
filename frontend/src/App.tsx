@@ -9,6 +9,7 @@ import ProfileSelector from './components/ProfileSelector';
 import ProfileBanner from './components/ProfileBanner';
 import HomePage from './pages/HomePage';
 import SportsTrainingPage from './pages/SportsTrainingPage';
+import WorkoutPlanningPage from './pages/WorkoutPlanningPage';
 import AnalyzerPage from './pages/AnalyzerPage';
 import ReporterPage from './pages/ReporterPage';
 import HealthIntegrationsPage from './pages/HealthIntegrationsPage';
@@ -37,19 +38,21 @@ const AppContent: React.FC = () => {
     switch (currentPage) {
       case 'home':
         return <HomePage onPageChange={setCurrentPage} />;
-      case 'sports':
+      case 'sports-training':
         return <SportsTrainingPage />;
+      case 'workout-planning':
+        return <WorkoutPlanningPage />;
       case 'analyzer':
         return <AnalyzerPage />;
       case 'reporter':
         return <ReporterPage />;
-      case 'health':
+      case 'health-integrations':
         return <HealthIntegrationsPage />;
-      case 'routines':
+      case 'exercise-routines':
         return <ExerciseRoutinesPage />;
-      case 'diary':
+      case 'performance-diary':
         return <PerformanceDiaryPage />;
-      case 'export':
+      case 'data-export':
         return <DataExportPage />;
       case 'data-management':
         return <DataManagementPage />;

@@ -17,6 +17,7 @@ import {
   GetApp as ExportIcon,
   Settings as SettingsIcon,
   MoreHoriz as MoreIcon,
+  Event as EventIcon,
 } from '@mui/icons-material';
 import { useProfile } from '../contexts/ProfileContext';
 
@@ -45,13 +46,14 @@ const Navigation: React.FC<NavigationProps> = ({ currentPage, onPageChange }) =>
   // All pages for desktop
   const allPages = [
     { key: 'home', label: 'Home', icon: HomeIcon },
-    { key: 'sports', label: 'Sports', icon: SportsIcon },
+    { key: 'sports-training', label: 'Sports', icon: SportsIcon },
+    { key: 'workout-planning', label: 'Planning', icon: EventIcon },
     { key: 'analyzer', label: 'Analyzer', icon: AnalyzerIcon },
     { key: 'reporter', label: 'Reporter', icon: ReporterIcon },
-    { key: 'health', label: 'Health', icon: HealthIcon },
-    { key: 'routines', label: 'Routines', icon: RoutinesIcon },
-    { key: 'diary', label: 'Diary', icon: DiaryIcon },
-    { key: 'export', label: 'Export', icon: ExportIcon },
+    { key: 'health-integrations', label: 'Health', icon: HealthIcon },
+    { key: 'exercise-routines', label: 'Routines', icon: RoutinesIcon },
+    { key: 'performance-diary', label: 'Diary', icon: DiaryIcon },
+    { key: 'data-export', label: 'Export', icon: ExportIcon },
     ...(isAdmin ? [{ key: 'data-management', label: 'Settings', icon: SettingsIcon }] : []),
   ];
 
