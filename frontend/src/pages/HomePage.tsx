@@ -111,6 +111,8 @@ const HomePage: React.FC<HomePageProps> = ({ onPageChange }) => {
   // Get profile-specific stats
   const getProfileStats = () => {
     const sessions = getProfileData('sportsSessions') || [];
+    const basketballSessions = sessions.filter((s: any) => s.sport === 'basketball').length;
+    const footballSessions = sessions.filter((s: any) => s.sport === 'football').length;
     const totalSessions = sessions.length;
     const thisWeekSessions = sessions.filter((s: any) => {
       const sessionDate = new Date(s.date);
@@ -119,7 +121,16 @@ const HomePage: React.FC<HomePageProps> = ({ onPageChange }) => {
       return sessionDate >= weekAgo;
     }).length;
 
-    return { totalSessions, thisWeekSessions };
+    const plannedWorkouts = getProfileData('plannedWorkouts') || [];
+    const completedWorkouts = plannedWorkouts.filter((w: any) => w.isCompleted).length;
+
+    return { 
+      basketballSessions, 
+      footballSessions, 
+      totalSessions, 
+      thisWeekSessions,
+      completedWorkouts 
+    };
   };
 
   const stats = getProfileStats();
@@ -146,10 +157,10 @@ const HomePage: React.FC<HomePageProps> = ({ onPageChange }) => {
   };
 
   const quickStats = [
-    { label: 'Basketball Sessions', value: '12', color: '#ff9800' },
-    { label: 'Football Sessions', value: '8', color: '#4caf50' },
-    { label: 'This Week', value: '5', color: '#2196f3' },
-    { label: 'Goals Achieved', value: '3', color: '#9c27b0' }
+    { label: 'Basketball Sessions', value: stats.basketballSessions.toString(), color: '#ff9800' },
+    { label: 'Football Sessions', value: stats.footballSessions.toString(), color: '#4caf50' },
+    { label: 'This Week', value: stats.thisWeekSessions.toString(), color: '#2196f3' },
+    { label: 'Goals Achieved', value: stats.completedWorkouts.toString(), color: '#9c27b0' }
   ];
 
   return (
