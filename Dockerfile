@@ -55,6 +55,9 @@ RUN apk add --no-cache curl
 # Copy built frontend to nginx
 COPY --from=builder /app/frontend/build /usr/share/nginx/html
 
+# Copy images separately to avoid TypeScript compilation issues
+COPY frontend/public/images /usr/share/nginx/html/images
+
 # Copy nginx configuration
 COPY deployment/nginx.conf /etc/nginx/nginx.conf
 

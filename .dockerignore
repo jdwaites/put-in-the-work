@@ -39,13 +39,13 @@ Thumbs.db
 server-output.log
 server.log
 
-# Large image files (keep smaller ones if needed)
-*.jpg
-*.jpeg
-*.png
-*.gif
-*.bmp
-*.tiff
+# Large image files (but keep public/images for the app)
+frontend/src/**/*.jpg
+frontend/src/**/*.jpeg
+frontend/src/**/*.png
+frontend/src/**/*.gif
+frontend/src/**/*.bmp
+frontend/src/**/*.tiff
 *.ico
 
 # Git files
