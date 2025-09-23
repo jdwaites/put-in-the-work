@@ -18,6 +18,7 @@ import {
   Settings as SettingsIcon,
   MoreHoriz as MoreIcon,
 } from '@mui/icons-material';
+import { useProfile } from '../contexts/ProfileContext';
 
 interface NavigationProps {
   currentPage: string;
@@ -27,6 +28,10 @@ interface NavigationProps {
 const Navigation: React.FC<NavigationProps> = ({ currentPage, onPageChange }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { currentProfile } = useProfile();
+  
+  // Only show settings for Mal (admin)
+  const isAdmin = currentProfile.id === 'jamal';
   
   // Define primary pages for mobile (most used)
   const primaryPages = [
@@ -34,7 +39,7 @@ const Navigation: React.FC<NavigationProps> = ({ currentPage, onPageChange }) =>
     { key: 'sports', label: 'Sports', icon: SportsIcon },
     { key: 'analyzer', label: 'Analyzer', icon: AnalyzerIcon },
     { key: 'diary', label: 'Diary', icon: DiaryIcon },
-    { key: 'data-management', label: 'Settings', icon: SettingsIcon },
+    ...(isAdmin ? [{ key: 'data-management', label: 'Settings', icon: SettingsIcon }] : []),
   ];
 
   // All pages for desktop
@@ -47,7 +52,7 @@ const Navigation: React.FC<NavigationProps> = ({ currentPage, onPageChange }) =>
     { key: 'routines', label: 'Routines', icon: RoutinesIcon },
     { key: 'diary', label: 'Diary', icon: DiaryIcon },
     { key: 'export', label: 'Export', icon: ExportIcon },
-    { key: 'data-management', label: 'Settings', icon: SettingsIcon },
+    ...(isAdmin ? [{ key: 'data-management', label: 'Settings', icon: SettingsIcon }] : []),
   ];
 
   const pages = isMobile ? primaryPages : allPages;
