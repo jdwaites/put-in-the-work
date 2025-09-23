@@ -1,0 +1,96 @@
+# Node modules
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Production builds
+build
+dist
+
+# Development files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Windows Zone Identifier files
+*.Zone.Identifier
+
+# Large image files (keep smaller ones if needed)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.ico
+
+# Git files
+.git
+.gitignore
+
+# Documentation
+README*.md
+*.md
+
+# Logs
+logs
+*.log
+
+# Coverage directory used by tools like istanbul
+coverage
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+
+# Temporary files
+tmp/
+temp/
+
+# Deployment files (keep nginx.conf)
+deployment/config.env*
+deployment/cloud-run.yaml
+.github/
+*.sh
+Dockerfile
+.dockerignore
+
+# Local development files
+server.log
+server-output.log
+*.backup
+*.with-data
+_temp_disabled/
+
+# Backup and temporary files
+*.bak
+*.tmp
+*.swp
+*.swo
+*~

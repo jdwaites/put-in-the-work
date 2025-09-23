@@ -5,6 +5,30 @@
 
 set -e
 
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Print colored output
+print_status() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
 # Load configuration from file if it exists
 CONFIG_FILE="${CONFIG_FILE:-deployment/config.env}"
 if [ -f "$CONFIG_FILE" ]; then
@@ -13,13 +37,6 @@ if [ -f "$CONFIG_FILE" ]; then
 else
     print_warning "Configuration file $CONFIG_FILE not found. Using defaults and environment variables."
 fi
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
 
 # Configuration - Can be overridden by environment variables or config file
 PROJECT_ID="${GCP_PROJECT_ID:-}"
@@ -43,23 +60,6 @@ REPOSITORY_NAME="${REPOSITORY_NAME:-putting-in-the-work}"
 
 # Application Configuration
 NODE_ENV="${NODE_ENV:-production}"
-
-# Print colored output
-print_status() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
 
 # Check prerequisites
 check_prerequisites() {
