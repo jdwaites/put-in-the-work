@@ -12,7 +12,6 @@ import SportsTrainingPage from './pages/SportsTrainingPage';
 import WorkoutPlanningPage from './pages/WorkoutPlanningPage';
 import AnalyzerPage from './pages/AnalyzerPage';
 import ReporterPage from './pages/ReporterPage';
-import HealthIntegrationsPage from './pages/HealthIntegrationsPage';
 import ExerciseRoutinesPage from './pages/ExerciseRoutinesPage';
 import PerformanceDiaryPage from './pages/PerformanceDiaryPage';
 import DataExportPage from './pages/DataExportPage';
@@ -46,8 +45,6 @@ const AppContent: React.FC = () => {
         return <AnalyzerPage />;
       case 'reporter':
         return <ReporterPage />;
-      case 'health-integrations':
-        return <HealthIntegrationsPage />;
       case 'exercise-routines':
         return <ExerciseRoutinesPage />;
       case 'performance-diary':
