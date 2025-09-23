@@ -13,6 +13,7 @@ import {
   EventNote as RoutinesIcon,
   BookOnline as DiaryIcon,
   GetApp as ExportIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 
 interface NavigationProps {
@@ -30,6 +31,7 @@ const Navigation: React.FC<NavigationProps> = ({ currentPage, onPageChange }) =>
     { key: 'routines', label: 'Routines', icon: RoutinesIcon },
     { key: 'diary', label: 'Diary', icon: DiaryIcon },
     { key: 'export', label: 'Export', icon: ExportIcon },
+    { key: 'data-management', label: 'Settings', icon: SettingsIcon },
   ];
 
   const currentIndex = pages.findIndex(page => page.key === currentPage);
