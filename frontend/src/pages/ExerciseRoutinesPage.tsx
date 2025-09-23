@@ -71,11 +71,13 @@ const ExerciseRoutinesPage: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
   const [routines, setRoutines] = useState<WorkoutRoutine[]>([]);
   const [currentSession, setCurrentSession] = useState<WorkoutSession | null>(null);
-  const [exercises] = useState<Exercise[]>(exerciseRoutineService.getExerciseDatabase());
+  const [exercises, setExercises] = useState<Exercise[]>(exerciseRoutineService.getExerciseDatabase());
+  const [customExercises, setCustomExercises] = useState<Exercise[]>([]);
   
   // Dialog states
   const [createRoutineOpen, setCreateRoutineOpen] = useState(false);
   const [exerciseSearchOpen, setExerciseSearchOpen] = useState(false);
+  const [createCustomExerciseOpen, setCreateCustomExerciseOpen] = useState(false);
   const [workoutSessionOpen, setWorkoutSessionOpen] = useState(false);
   
   // Form states
@@ -85,6 +87,16 @@ const ExerciseRoutinesPage: React.FC = () => {
     category: 'strength' as const,
     difficulty: 'beginner' as const,
     exercises: [] as RoutineExercise[]
+  });
+  const [customExerciseForm, setCustomExerciseForm] = useState({
+    name: '',
+    category: 'strength' as 'strength' | 'cardio' | 'flexibility' | 'core' | 'functional',
+    muscleGroups: [] as string[],
+    equipment: 'bodyweight' as string,
+    description: '',
+    defaultReps: 10,
+    defaultDuration: 0,
+    defaultWeight: 0
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -100,6 +112,12 @@ const ExerciseRoutinesPage: React.FC = () => {
   const loadData = () => {
     setRoutines(exerciseRoutineService.getAllRoutines());
     setCurrentSession(exerciseRoutineService.getCurrentSession());
+    
+    // Load custom exercises from localStorage
+    const savedCustomExercises = localStorage.getItem('customExercises');
+    if (savedCustomExercises) {
+      setCustomExercises(JSON.parse(savedCustomExercises));
+    }
   };
 
   const handleCreateRoutine = () => {
@@ -165,6 +183,51 @@ const ExerciseRoutinesPage: React.FC = () => {
       exercises: [...routineForm.exercises, routineExercise]
     });
     setExerciseSearchOpen(false);
+  };
+
+  const handleCreateCustomExercise = () => {
+    if (!customExerciseForm.name.trim()) {
+      setSnackbar({ open: true, message: 'Exercise name is required', severity: 'error' });
+      return;
+    }
+
+    const newExercise: Exercise = {
+      id: `custom_${Date.now()}`,
+      name: customExerciseForm.name,
+      category: customExerciseForm.category,
+      muscleGroups: customExerciseForm.muscleGroups,
+      equipment: [customExerciseForm.equipment],
+      description: customExerciseForm.description,
+      instructions: [customExerciseForm.description],
+      defaultReps: customExerciseForm.defaultReps,
+      defaultSets: 3,
+      defaultDuration: customExerciseForm.defaultDuration,
+      defaultWeight: customExerciseForm.defaultWeight
+    };
+
+    // Add to custom exercises list
+    const updatedCustomExercises = [...customExercises, newExercise];
+    setCustomExercises(updatedCustomExercises);
+    
+    // Save to localStorage
+    localStorage.setItem('customExercises', JSON.stringify(updatedCustomExercises));
+
+    // Add to routine if creating one
+    handleAddExerciseToRoutine(newExercise);
+
+    // Reset form and close dialog
+    setCustomExerciseForm({
+      name: '',
+      category: 'strength',
+      muscleGroups: [],
+      equipment: 'bodyweight',
+      description: '',
+      defaultReps: 10,
+      defaultDuration: 0,
+      defaultWeight: 0
+    });
+    setCreateCustomExerciseOpen(false);
+    setSnackbar({ open: true, message: 'Custom exercise created and added!', severity: 'success' });
   };
 
   const handleRemoveExerciseFromRoutine = (exerciseId: string) => {
@@ -253,14 +316,19 @@ const ExerciseRoutinesPage: React.FC = () => {
   };
 
   const getFilteredExercises = () => {
-    let filtered = exercises;
+    // Combine default exercises with custom exercises
+    let filtered = [...exercises, ...customExercises];
     
     if (selectedCategory !== 'all') {
       filtered = filtered.filter(exercise => exercise.category === selectedCategory);
     }
     
     if (searchQuery) {
-      filtered = exerciseRoutineService.searchExercises(searchQuery);
+      filtered = filtered.filter(exercise => 
+        exercise.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        exercise.muscleGroups.some(muscle => muscle.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        exercise.category.toLowerCase().includes(searchQuery.toLowerCase())
+      );
     }
     
     return filtered;
@@ -702,7 +770,110 @@ const ExerciseRoutinesPage: React.FC = () => {
           </List>
         </DialogContent>
         <DialogActions>
+          <Button 
+            onClick={() => {
+              setExerciseSearchOpen(false);
+              setCreateCustomExerciseOpen(true);
+            }}
+            startIcon={<AddIcon />}
+          >
+            Create Custom Exercise
+          </Button>
           <Button onClick={() => setExerciseSearchOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Custom Exercise Creation Dialog */}
+      <Dialog open={createCustomExerciseOpen} onClose={() => setCreateCustomExerciseOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Create Custom Exercise</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 1 }}>
+            <TextField
+              fullWidth
+              label="Exercise Name"
+              value={customExerciseForm.name}
+              onChange={(e) => setCustomExerciseForm({ ...customExerciseForm, name: e.target.value })}
+              sx={{ mb: 2 }}
+              required
+            />
+            
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel>Category</InputLabel>
+              <Select
+                value={customExerciseForm.category}
+                label="Category"
+                onChange={(e) => setCustomExerciseForm({ ...customExerciseForm, category: e.target.value as any })}
+              >
+                <MenuItem value="strength">Strength</MenuItem>
+                <MenuItem value="cardio">Cardio</MenuItem>
+                <MenuItem value="flexibility">Flexibility</MenuItem>
+                <MenuItem value="core">Core</MenuItem>
+                <MenuItem value="functional">Functional</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel>Equipment</InputLabel>
+              <Select
+                value={customExerciseForm.equipment}
+                label="Equipment"
+                onChange={(e) => setCustomExerciseForm({ ...customExerciseForm, equipment: e.target.value as any })}
+              >
+                <MenuItem value="bodyweight">Bodyweight</MenuItem>
+                <MenuItem value="dumbbells">Dumbbells</MenuItem>
+                <MenuItem value="barbell">Barbell</MenuItem>
+                <MenuItem value="machine">Machine</MenuItem>
+                <MenuItem value="cable">Cable</MenuItem>
+                <MenuItem value="other">Other</MenuItem>
+              </Select>
+            </FormControl>
+
+            <TextField
+              fullWidth
+              label="Description/Instructions"
+              value={customExerciseForm.description}
+              onChange={(e) => setCustomExerciseForm({ ...customExerciseForm, description: e.target.value })}
+              multiline
+              rows={3}
+              sx={{ mb: 2 }}
+            />
+
+            <Grid container spacing={2}>
+              <Grid item xs={4}>
+                <TextField
+                  fullWidth
+                  label="Default Reps"
+                  type="number"
+                  value={customExerciseForm.defaultReps}
+                  onChange={(e) => setCustomExerciseForm({ ...customExerciseForm, defaultReps: parseInt(e.target.value) || 0 })}
+                />
+              </Grid>
+              <Grid item xs={4}>
+                <TextField
+                  fullWidth
+                  label="Duration (sec)"
+                  type="number"
+                  value={customExerciseForm.defaultDuration}
+                  onChange={(e) => setCustomExerciseForm({ ...customExerciseForm, defaultDuration: parseInt(e.target.value) || 0 })}
+                />
+              </Grid>
+              <Grid item xs={4}>
+                <TextField
+                  fullWidth
+                  label="Default Weight"
+                  type="number"
+                  value={customExerciseForm.defaultWeight}
+                  onChange={(e) => setCustomExerciseForm({ ...customExerciseForm, defaultWeight: parseInt(e.target.value) || 0 })}
+                />
+              </Grid>
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateCustomExerciseOpen(false)}>Cancel</Button>
+          <Button onClick={handleCreateCustomExercise} variant="contained">
+            Create & Add to Routine
+          </Button>
         </DialogActions>
       </Dialog>
 

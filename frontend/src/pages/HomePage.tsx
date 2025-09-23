@@ -11,7 +11,9 @@ import {
   Container,
   Paper,
   IconButton,
-  Fade
+  Fade,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import {
   SportsBasketball as BasketballIcon,
@@ -20,7 +22,12 @@ import {
   TrendingUp as ProgressIcon,
   Star as StarIcon,
   Refresh as RefreshIcon,
-  PlayArrow as PlayIcon
+  PlayArrow as PlayIcon,
+  Healing as HealthIcon,
+  EventNote as RoutinesIcon,
+  BookOnline as DiaryIcon,
+  GetApp as ExportIcon,
+  Assessment as ReporterIcon
 } from '@mui/icons-material';
 import { useProfile } from '../contexts/ProfileContext';
 
@@ -83,6 +90,8 @@ const inspirationalQuotes = [
 ];
 
 const HomePage: React.FC<HomePageProps> = ({ onPageChange }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { currentProfile, getProfileData } = useProfile();
   const [currentQuote, setCurrentQuote] = useState(0);
   const [fade, setFade] = useState(true);
@@ -102,6 +111,8 @@ const HomePage: React.FC<HomePageProps> = ({ onPageChange }) => {
   // Get profile-specific stats
   const getProfileStats = () => {
     const sessions = getProfileData('sportsSessions') || [];
+    const basketballSessions = sessions.filter((s: any) => s.sport === 'basketball').length;
+    const footballSessions = sessions.filter((s: any) => s.sport === 'football').length;
     const totalSessions = sessions.length;
     const thisWeekSessions = sessions.filter((s: any) => {
       const sessionDate = new Date(s.date);
@@ -110,7 +121,16 @@ const HomePage: React.FC<HomePageProps> = ({ onPageChange }) => {
       return sessionDate >= weekAgo;
     }).length;
 
-    return { totalSessions, thisWeekSessions };
+    const plannedWorkouts = getProfileData('plannedWorkouts') || [];
+    const completedWorkouts = plannedWorkouts.filter((w: any) => w.isCompleted).length;
+
+    return { 
+      basketballSessions, 
+      footballSessions, 
+      totalSessions, 
+      thisWeekSessions,
+      completedWorkouts 
+    };
   };
 
   const stats = getProfileStats();
@@ -137,10 +157,10 @@ const HomePage: React.FC<HomePageProps> = ({ onPageChange }) => {
   };
 
   const quickStats = [
-    { label: 'Basketball Sessions', value: '12', color: '#ff9800' },
-    { label: 'Football Sessions', value: '8', color: '#4caf50' },
-    { label: 'This Week', value: '5', color: '#2196f3' },
-    { label: 'Goals Achieved', value: '3', color: '#9c27b0' }
+    { label: 'Basketball Sessions', value: stats.basketballSessions.toString(), color: '#ff9800' },
+    { label: 'Football Sessions', value: stats.footballSessions.toString(), color: '#4caf50' },
+    { label: 'This Week', value: stats.thisWeekSessions.toString(), color: '#2196f3' },
+    { label: 'Goals Achieved', value: stats.completedWorkouts.toString(), color: '#9c27b0' }
   ];
 
   return (
@@ -599,6 +619,98 @@ const HomePage: React.FC<HomePageProps> = ({ onPageChange }) => {
             </CardContent>
           </Card>
         </Grid>
+        
+        {/* Additional features for mobile access */}
+        {isMobile && (
+          <>
+            <Grid item xs={12} sm={6}>
+              <Card 
+                elevation={3} 
+                sx={{ 
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s',
+                  '&:hover': { transform: 'translateY(-4px)' }
+                }}
+                onClick={() => onPageChange('health')}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                  <HealthIcon sx={{ fontSize: 50, color: '#f44336', mb: 1 }} />
+                  <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    Health Integrations
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Connect health apps and devices
+                  </Typography>
+                  <Button 
+                    variant="outlined" 
+                    size="small"
+                    onClick={(e) => { e.stopPropagation(); onPageChange('health'); }}
+                  >
+                    Open
+                  </Button>
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} sm={6}>
+              <Card 
+                elevation={3} 
+                sx={{ 
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s',
+                  '&:hover': { transform: 'translateY(-4px)' }
+                }}
+                onClick={() => onPageChange('routines')}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                  <RoutinesIcon sx={{ fontSize: 50, color: '#ff5722', mb: 1 }} />
+                  <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    Exercise Routines
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Manage workout routines
+                  </Typography>
+                  <Button 
+                    variant="outlined" 
+                    size="small"
+                    onClick={(e) => { e.stopPropagation(); onPageChange('routines'); }}
+                  >
+                    Open
+                  </Button>
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} sm={6}>
+              <Card 
+                elevation={3} 
+                sx={{ 
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s',
+                  '&:hover': { transform: 'translateY(-4px)' }
+                }}
+                onClick={() => onPageChange('export')}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                  <ExportIcon sx={{ fontSize: 50, color: '#607d8b', mb: 1 }} />
+                  <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    Data Export
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Export your fitness data
+                  </Typography>
+                  <Button 
+                    variant="outlined" 
+                    size="small"
+                    onClick={(e) => { e.stopPropagation(); onPageChange('export'); }}
+                  >
+                    Open
+                  </Button>
+                </CardContent>
+              </Card>
+            </Grid>
+          </>
+        )}
       </Grid>
     </Container>
   );

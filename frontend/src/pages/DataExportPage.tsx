@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
@@ -41,6 +41,7 @@ import {
   Timer as TimerIcon,
   Psychology as MoodIcon
 } from '@mui/icons-material';
+import { useProfile } from '../contexts/ProfileContext';
 
 interface ExportOptions {
   format: 'pdf' | 'csv' | 'json';
@@ -66,14 +67,13 @@ const DataExportPage: React.FC = () => {
   const [backupProgress, setBackupProgress] = useState(0);
   const [showAlert, setShowAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
+  const { getProfileData, currentProfile } = useProfile();
 
   const dataTypeOptions = [
-    { key: 'workouts', label: 'Workouts & Exercise Routines', icon: WorkoutIcon },
-    { key: 'sports', label: 'Sports Training Sessions', icon: TimerIcon },
-    { key: 'nutrition', label: 'Nutrition & Meal Tracking', icon: NutritionIcon },
-    { key: 'health', label: 'Health Metrics & Vitals', icon: DataIcon },
-    { key: 'mood', label: 'Performance Diary & Mood', icon: MoodIcon },
-    { key: 'analytics', label: 'Progress Analytics', icon: AnalyticsIcon }
+    { key: 'sports', label: 'Sports Training Sessions', icon: WorkoutIcon },
+    { key: 'workouts', label: 'Planned Workouts', icon: TimerIcon },
+    { key: 'analytics', label: 'Progress Analytics', icon: AnalyticsIcon },
+    { key: 'profiles', label: 'Profile Settings', icon: DataIcon }
   ];
 
   const handleDataTypeChange = (dataType: string, checked: boolean) => {
@@ -109,9 +109,9 @@ const DataExportPage: React.FC = () => {
       // Wait for progress to complete
       await new Promise(resolve => setTimeout(resolve, 2200));
 
-      // Generate mock file based on format
+      // Generate real file based on format and real data
       const timestamp = new Date().toISOString().split('T')[0];
-      const fileName = `fitness-data-${timestamp}.${exportOptions.format}`;
+      const fileName = `${currentProfile.name}-fitness-data-${timestamp}.${exportOptions.format}`;
       
       let content = '';
       let mimeType = '';
@@ -156,44 +156,81 @@ const DataExportPage: React.FC = () => {
 
   const generateCSVContent = () => {
     let csv = '';
+    const sessions = getProfileData('sportsSessions') || [];
+    const plannedWorkouts = getProfileData('plannedWorkouts') || [];
+    
     exportOptions.dataTypes.forEach(dataType => {
-      csv += `${dataType.toUpperCase()} DATA\n`;
-      csv += 'Date,Type,Duration,Notes\n';
-      csv += '2024-01-15,Basketball Shooting,45,Good session\n';
-      csv += '2024-01-14,Football Drills,60,Need to work on speed\n';
-      csv += '\n';
+      if (dataType === 'sports' && sessions.length > 0) {
+        csv += 'SPORTS TRAINING SESSIONS\n';
+        csv += 'Date,Sport,Category,Subcategory,Duration,Quality,Notes\n';
+        sessions.forEach((session: any) => {
+          csv += `${session.date},${session.sport},${session.category || ''},${session.subcategory || ''},${session.duration || 0},${session.quality || 0},"${session.notes || ''}"\n`;
+        });
+        csv += '\n';
+      }
+      
+      if (dataType === 'workouts' && plannedWorkouts.length > 0) {
+        csv += 'PLANNED WORKOUTS\n';
+        csv += 'Date,Sport,Title,Description,Duration,Participants,Completed\n';
+        plannedWorkouts.forEach((workout: any) => {
+          csv += `${workout.scheduledDate},${workout.sport},"${workout.title}","${workout.description}",${workout.estimatedDuration},"${workout.participants?.join(';') || ''}",${workout.isCompleted}\n`;
+        });
+        csv += '\n';
+      }
     });
+    
+    if (csv === '') {
+      csv = 'No data available for selected data types\n';
+    }
+    
     return csv;
   };
 
   const generateJSONContent = () => {
-    const data = {
+    const sessions = getProfileData('sportsSessions') || [];
+    const plannedWorkouts = getProfileData('plannedWorkouts') || [];
+    
+    const data: any = {
       exportDate: new Date().toISOString(),
+      profile: currentProfile.name,
       dateRange: exportOptions.dateRange,
       dataTypes: exportOptions.dataTypes,
-      data: {
-        sports: [
-          {
-            date: '2024-01-15',
-            sport: 'basketball',
-            category: 'shooting',
-            duration: 45,
-            quality: 8,
-            notes: 'Good session'
-          }
-        ],
-        workouts: [
-          {
-            date: '2024-01-14',
-            name: 'Upper Body Strength',
-            exercises: [
-              { name: 'Push-ups', sets: 3, reps: 15 },
-              { name: 'Pull-ups', sets: 3, reps: 8 }
-            ]
-          }
-        ]
-      }
+      data: {}
     };
+    
+    if (exportOptions.dataTypes.includes('sports')) {
+      data.data.sportsSessions = sessions;
+    }
+    
+    if (exportOptions.dataTypes.includes('workouts')) {
+      data.data.plannedWorkouts = plannedWorkouts;
+    }
+    
+    if (exportOptions.dataTypes.includes('analytics')) {
+      const basketballSessions = sessions.filter((s: any) => s.sport === 'basketball');
+      const footballSessions = sessions.filter((s: any) => s.sport === 'football');
+      
+      data.data.analytics = {
+        totalSessions: sessions.length,
+        basketballSessions: basketballSessions.length,
+        footballSessions: footballSessions.length,
+        totalMinutes: sessions.reduce((sum: number, s: any) => sum + (s.duration || 0), 0),
+        averageQuality: sessions.length > 0 
+          ? sessions.reduce((sum: number, s: any) => sum + (s.quality || 0), 0) / sessions.length
+          : 0,
+        completedWorkouts: plannedWorkouts.filter((w: any) => w.isCompleted).length
+      };
+    }
+    
+    if (exportOptions.dataTypes.includes('profiles')) {
+      data.data.profile = {
+        name: currentProfile.name,
+        id: currentProfile.id,
+        color: currentProfile.color,
+        backgroundColor: currentProfile.backgroundColor
+      };
+    }
+    
     return JSON.stringify(data, null, 2);
   };
 
@@ -233,6 +270,21 @@ const DataExportPage: React.FC = () => {
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
         Export your fitness data or create backups for safekeeping
       </Typography>
+
+      {(() => {
+        const sessions = getProfileData('sportsSessions') || [];
+        const workouts = getProfileData('plannedWorkouts') || [];
+        const hasData = sessions.length > 0 || workouts.length > 0;
+        
+        if (!hasData) {
+          return (
+            <Alert severity="info" sx={{ mb: 3 }}>
+              No training data available for export. Start logging your basketball and football sessions or create planned workouts to have data to export!
+            </Alert>
+          );
+        }
+        return null;
+      })()}
 
       <Grid container spacing={3}>
         {/* Export Configuration */}

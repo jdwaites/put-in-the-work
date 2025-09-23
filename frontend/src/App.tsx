@@ -1,4 +1,4 @@
-﻿// Profile System Update - Sept 20, 2025
+// Profile System Update - Sept 20, 2025
 import React, { useState } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -9,12 +9,13 @@ import ProfileSelector from './components/ProfileSelector';
 import ProfileBanner from './components/ProfileBanner';
 import HomePage from './pages/HomePage';
 import SportsTrainingPage from './pages/SportsTrainingPage';
+import WorkoutPlanningPage from './pages/WorkoutPlanningPage';
 import AnalyzerPage from './pages/AnalyzerPage';
 import ReporterPage from './pages/ReporterPage';
-import HealthIntegrationsPage from './pages/HealthIntegrationsPage';
 import ExerciseRoutinesPage from './pages/ExerciseRoutinesPage';
 import PerformanceDiaryPage from './pages/PerformanceDiaryPage';
 import DataExportPage from './pages/DataExportPage';
+import DataManagementPage from './pages/DataManagementPage';
 
 const theme = createTheme({
   palette: {
@@ -36,20 +37,22 @@ const AppContent: React.FC = () => {
     switch (currentPage) {
       case 'home':
         return <HomePage onPageChange={setCurrentPage} />;
-      case 'sports':
+      case 'sports-training':
         return <SportsTrainingPage />;
+      case 'workout-planning':
+        return <WorkoutPlanningPage />;
       case 'analyzer':
         return <AnalyzerPage />;
       case 'reporter':
         return <ReporterPage />;
-      case 'health':
-        return <HealthIntegrationsPage />;
-      case 'routines':
+      case 'exercise-routines':
         return <ExerciseRoutinesPage />;
-      case 'diary':
+      case 'performance-diary':
         return <PerformanceDiaryPage />;
-      case 'export':
+      case 'data-export':
         return <DataExportPage />;
+      case 'data-management':
+        return <DataManagementPage />;
       default:
         return <HomePage onPageChange={setCurrentPage} />;
     }
