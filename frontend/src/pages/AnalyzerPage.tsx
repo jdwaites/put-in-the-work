@@ -30,6 +30,7 @@ import {
   Star as StarIcon,
   BarChart as ChartIcon
 } from '@mui/icons-material';
+import { useProfile } from '../contexts/ProfileContext';
 
 interface TabPanelProps {
   children?: any;
@@ -53,44 +54,188 @@ function TabPanel(props: TabPanelProps) {
 const AnalyzerPage: React.FC = () => {
   const [currentTab, setCurrentTab] = useState(0);
   const [timeRange, setTimeRange] = useState('last30');
+  const { getProfileData } = useProfile();
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
   };
 
-  // Mock data for demonstration
-  const sportsStats = {
-    basketball: {
-      totalSessions: 15,
-      totalMinutes: 450,
-      averageQuality: 7.2,
-      improvement: '+15%',
-      favoriteSkill: 'Shooting',
-      weeklyProgress: [6, 7, 8, 7, 9, 8, 7]
-    },
-    football: {
-      totalSessions: 12,
-      totalMinutes: 380,
-      averageQuality: 6.8,
-      improvement: '+22%',
-      favoriteSkill: 'Route Running',
-      weeklyProgress: [5, 6, 7, 6, 8, 9, 7]
-    }
+  // Calculate real stats from profile data
+  const calculateSportsStats = () => {
+    const sessions = getProfileData('sportsSessions') || [];
+    
+    const basketballSessions = sessions.filter((s: any) => s.sport === 'basketball');
+    const footballSessions = sessions.filter((s: any) => s.sport === 'football');
+
+    const calculateStats = (sportSessions: any[]) => {
+      if (sportSessions.length === 0) {
+        return {
+          totalSessions: 0,
+          totalMinutes: 0,
+          averageQuality: 0,
+          improvement: '0%',
+          favoriteSkill: 'None',
+          weeklyProgress: [0, 0, 0, 0, 0, 0, 0]
+        };
+      }
+
+      const totalMinutes = sportSessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+      const avgQuality = sportSessions.reduce((sum, s) => sum + (s.quality || 0), 0) / sportSessions.length;
+      
+      // Calculate skill frequency
+      const skillCounts: { [key: string]: number } = {};
+      sportSessions.forEach(s => {
+        if (s.skills && Array.isArray(s.skills)) {
+          s.skills.forEach((skill: string) => {
+            skillCounts[skill] = (skillCounts[skill] || 0) + 1;
+          });
+        }
+      });
+      
+      const favoriteSkill = Object.keys(skillCounts).length > 0 
+        ? Object.entries(skillCounts).sort(([,a], [,b]) => b - a)[0][0]
+        : 'Various Skills';
+
+      // Calculate weekly progress (last 7 days)
+      const weeklyProgress = Array(7).fill(0);
+      const today = new Date();
+      sportSessions.forEach(s => {
+        const sessionDate = new Date(s.date);
+        const daysDiff = Math.floor((today.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysDiff >= 0 && daysDiff < 7) {
+          weeklyProgress[6 - daysDiff] = s.quality || 0;
+        }
+      });
+
+      // Simple improvement calculation based on recent vs older sessions
+      const recentSessions = sportSessions.slice(-5);
+      const olderSessions = sportSessions.slice(0, -5);
+      let improvement = '0%';
+      if (olderSessions.length > 0 && recentSessions.length > 0) {
+        const recentAvg = recentSessions.reduce((sum, s) => sum + (s.quality || 0), 0) / recentSessions.length;
+        const olderAvg = olderSessions.reduce((sum, s) => sum + (s.quality || 0), 0) / olderSessions.length;
+        const improvementPercent = ((recentAvg - olderAvg) / olderAvg * 100).toFixed(0);
+        improvement = `${improvementPercent > 0 ? '+' : ''}${improvementPercent}%`;
+      }
+
+      return {
+        totalSessions: sportSessions.length,
+        totalMinutes,
+        averageQuality: Math.round(avgQuality * 10) / 10,
+        improvement,
+        favoriteSkill,
+        weeklyProgress
+      };
+    };
+
+    return {
+      basketball: calculateStats(basketballSessions),
+      football: calculateStats(footballSessions)
+    };
   };
 
-  const achievements = [
-    { title: '7-Day Streak', description: 'Trained for 7 consecutive days', icon: StarIcon, achieved: true },
-    { title: 'Quality Master', description: 'Achieved 5 sessions with 9+ quality rating', icon: AchievementIcon, achieved: true },
-    { title: '100 Sessions', description: 'Complete 100 training sessions', icon: TrendIcon, achieved: false },
-    { title: 'Skill Specialist', description: 'Master all skills in one sport', icon: WorkoutIcon, achieved: false }
-  ];
+  const sportsStats = calculateSportsStats();
 
-  const skillAnalysis = [
-    { skill: 'Basketball Shooting', sessions: 8, avgQuality: 8.1, trend: 'up' },
-    { skill: 'Basketball Dribbling', sessions: 6, avgQuality: 7.5, trend: 'up' },
-    { skill: 'Football Catching', sessions: 7, avgQuality: 7.8, trend: 'stable' },
-    { skill: 'Football Route Running', sessions: 5, avgQuality: 6.9, trend: 'up' }
-  ];
+  // Calculate real achievements
+  const calculateAchievements = () => {
+    const sessions = getProfileData('sportsSessions') || [];
+    const totalSessions = sessions.length;
+    
+    // Check for 7-day streak
+    const today = new Date();
+    let consecutiveDays = 0;
+    for (let i = 0; i < 7; i++) {
+      const checkDate = new Date(today);
+      checkDate.setDate(checkDate.getDate() - i);
+      const hasSessionOnDate = sessions.some((s: any) => {
+        const sessionDate = new Date(s.date);
+        return sessionDate.toDateString() === checkDate.toDateString();
+      });
+      if (hasSessionOnDate) {
+        consecutiveDays++;
+      } else {
+        break;
+      }
+    }
+
+    // Check for quality sessions
+    const highQualitySessions = sessions.filter((s: any) => (s.quality || 0) >= 9).length;
+
+    return [
+      { 
+        title: '7-Day Streak', 
+        description: 'Trained for 7 consecutive days', 
+        icon: StarIcon, 
+        achieved: consecutiveDays >= 7 
+      },
+      { 
+        title: 'Quality Master', 
+        description: 'Achieved 5 sessions with 9+ quality rating', 
+        icon: AchievementIcon, 
+        achieved: highQualitySessions >= 5 
+      },
+      { 
+        title: '100 Sessions', 
+        description: 'Complete 100 training sessions', 
+        icon: TrendIcon, 
+        achieved: totalSessions >= 100 
+      },
+      { 
+        title: 'Skill Specialist', 
+        description: 'Master all skills in one sport', 
+        icon: WorkoutIcon, 
+        achieved: false // This would need more complex logic
+      }
+    ];
+  };
+
+  const achievements = calculateAchievements();
+
+  // Calculate real skill analysis
+  const calculateSkillAnalysis = () => {
+    const sessions = getProfileData('sportsSessions') || [];
+    const skillStats: { [key: string]: { sessions: number; totalQuality: number; qualities: number[] } } = {};
+
+    sessions.forEach((s: any) => {
+      if (s.skills && Array.isArray(s.skills)) {
+        s.skills.forEach((skill: string) => {
+          const fullSkillName = `${s.sport === 'basketball' ? 'Basketball' : 'Football'} ${skill}`;
+          if (!skillStats[fullSkillName]) {
+            skillStats[fullSkillName] = { sessions: 0, totalQuality: 0, qualities: [] };
+          }
+          skillStats[fullSkillName].sessions++;
+          skillStats[fullSkillName].totalQuality += (s.quality || 0);
+          skillStats[fullSkillName].qualities.push(s.quality || 0);
+        });
+      }
+    });
+
+    return Object.entries(skillStats).map(([skill, stats]) => {
+      const avgQuality = stats.totalQuality / stats.sessions;
+      
+      // Calculate trend based on recent vs older sessions
+      let trend = 'stable';
+      if (stats.qualities.length >= 3) {
+        const recent = stats.qualities.slice(-2).reduce((a, b) => a + b, 0) / 2;
+        const older = stats.qualities.slice(0, -2).reduce((a, b) => a + b, 0) / (stats.qualities.length - 2);
+        if (recent > older + 0.5) trend = 'up';
+        else if (recent < older - 0.5) trend = 'down';
+      }
+
+      return {
+        skill,
+        sessions: stats.sessions,
+        avgQuality: Math.round(avgQuality * 10) / 10,
+        trend
+      };
+    }).sort((a, b) => b.sessions - a.sessions); // Sort by number of sessions
+  };
+
+  const skillAnalysis = calculateSkillAnalysis();
+
+  // Check if we have any data
+  const totalSessions = (getProfileData('sportsSessions') || []).length;
+  const hasData = totalSessions > 0;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -101,29 +246,41 @@ const AnalyzerPage: React.FC = () => {
         Analyze your training progress, track improvements, and identify areas for growth
       </Typography>
 
-      <Box sx={{ mb: 3 }}>
-        <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel>Time Range</InputLabel>
-          <Select
-            value={timeRange}
-            onChange={(e) => setTimeRange(e.target.value)}
-          >
-            <MenuItem value="last7">Last 7 Days</MenuItem>
-            <MenuItem value="last30">Last 30 Days</MenuItem>
-            <MenuItem value="last90">Last 90 Days</MenuItem>
-            <MenuItem value="all">All Time</MenuItem>
-          </Select>
-        </FormControl>
-      </Box>
+      {!hasData ? (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          No training data available yet. Start logging your basketball and football sessions in the Sports Training page to see your performance analytics here!
+        </Alert>
+      ) : (
+        <>
+          {/* Time Range Filter */}
+          <Box sx={{ mb: 3 }}>
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <InputLabel>Time Range</InputLabel>
+              <Select
+                value={timeRange}
+                label="Time Range"
+                onChange={(e) => setTimeRange(e.target.value)}
+              >
+                <MenuItem value="last7">Last 7 Days</MenuItem>
+                <MenuItem value="last30">Last 30 Days</MenuItem>
+                <MenuItem value="last90">Last 90 Days</MenuItem>
+                <MenuItem value="all">All Time</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </>
+      )}
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={currentTab} onChange={handleTabChange}>
-          <Tab icon={<AnalyticsIcon />} label="Overview" />
-          <Tab icon={<BasketballIcon />} label="Basketball" />
-          <Tab icon={<FootballIcon />} label="Football" />
-          <Tab icon={<AchievementIcon />} label="Achievements" />
-        </Tabs>
-      </Box>
+      {hasData && (
+        <>
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+            <Tabs value={currentTab} onChange={handleTabChange}>
+              <Tab icon={<AnalyticsIcon />} label="Overview" />
+              <Tab icon={<BasketballIcon />} label="Basketball" />
+              <Tab icon={<FootballIcon />} label="Football" />
+              <Tab icon={<AchievementIcon />} label="Achievements" />
+            </Tabs>
+          </Box>
 
       <TabPanel value={currentTab} index={0}>
         <Grid container spacing={3}>
@@ -381,6 +538,8 @@ const AnalyzerPage: React.FC = () => {
           ))}
         </Grid>
       </TabPanel>
+        </>
+      )}
     </Box>
   );
 };
