@@ -72,11 +72,20 @@ const DataManagementPage: React.FC = () => {
           localStorage.clear();
           sessionStorage.clear();
           
-          // Show success message
-          alert('All data has been reset successfully! Redirecting to home...');
+          // Clear any cached data in memory
+          if (window.caches) {
+            window.caches.keys().then(names => {
+              names.forEach(name => {
+                window.caches.delete(name);
+              });
+            });
+          }
           
-          // Force redirect to home page to reset everything
-          window.location.href = window.location.origin;
+          // Show success message
+          alert('All data has been reset successfully! Redirecting to fresh start...');
+          
+          // Force redirect to root with cache busting
+          window.location.href = window.location.origin + '?reset=' + Date.now();
         }
       }
       
