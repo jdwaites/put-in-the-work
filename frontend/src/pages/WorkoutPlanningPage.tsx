@@ -45,6 +45,18 @@ import {
 } from '@mui/icons-material';
 import { useProfile } from '../contexts/ProfileContext';
 
+interface Exercise {
+  id: string;
+  name: string;
+  description: string;
+  videoUrl?: string; // YouTube URL
+  notes?: string; // Detailed instructions
+  sets?: number;
+  reps?: string; // Could be "10-12" or "30 seconds" etc.
+  weight?: string;
+  restTime?: string;
+}
+
 interface PlannedWorkout {
   id: string;
   sport: 'basketball' | 'football' | 'weightlifting' | 'swimming' | 'cardio' | 'track' | 'boxing' | 'other';
@@ -59,12 +71,15 @@ interface PlannedWorkout {
   isCompleted: boolean;
   completedDate?: string;
   notes: string;
+  exercises: Exercise[]; // Added exercises array
 }
 
 const WorkoutPlanningPage: React.FC = () => {
   const { currentProfile, profiles, getProfileData, setProfileData } = useProfile();
   const [plannedWorkouts, setPlannedWorkouts] = useState<PlannedWorkout[]>([]);
   const [openDialog, setOpenDialog] = useState(false);
+  const [openExerciseDialog, setOpenExerciseDialog] = useState(false);
+  const [currentWorkoutId, setCurrentWorkoutId] = useState<string>('');
   
   // Form state
   const [sport, setSport] = useState<'basketball' | 'football' | 'weightlifting' | 'swimming' | 'cardio' | 'track' | 'boxing' | 'other'>('basketball');
@@ -76,6 +91,20 @@ const WorkoutPlanningPage: React.FC = () => {
   const [estimatedDuration, setEstimatedDuration] = useState('');
   const [participants, setParticipants] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+
+  // Exercise form state
+  const [exerciseName, setExerciseName] = useState('');
+  const [exerciseDescription, setExerciseDescription] = useState('');
+  const [exerciseVideoUrl, setExerciseVideoUrl] = useState('');
+  const [exerciseNotes, setExerciseNotes] = useState('');
+  const [exerciseSets, setExerciseSets] = useState('');
+  const [exerciseReps, setExerciseReps] = useState('');
+  const [exerciseWeight, setExerciseWeight] = useState('');
+  const [exerciseRestTime, setExerciseRestTime] = useState('');
+
+  const [saveError, setSaveError] = useState('');
+  const [saveSuccess, setSaveSuccess] = useState('');
 
   // Basketball and Football categories (same as SportsTrainingPage)
   const basketballCategories = {
@@ -455,49 +484,150 @@ const WorkoutPlanningPage: React.FC = () => {
 
   // Load planned workouts on component mount
   useEffect(() => {
-    const savedWorkouts = getProfileData('plannedWorkouts');
-    if (savedWorkouts) {
-      setPlannedWorkouts(savedWorkouts);
+    try {
+      const savedWorkouts = getProfileData('plannedWorkouts');
+      if (savedWorkouts && Array.isArray(savedWorkouts)) {
+        // Ensure exercises array exists for backward compatibility
+        const workoutsWithExercises = savedWorkouts.map((workout: any) => ({
+          ...workout,
+          exercises: workout.exercises || []
+        }));
+        setPlannedWorkouts(workoutsWithExercises);
+        console.log('Loaded workouts:', workoutsWithExercises.length);
+      } else {
+        setPlannedWorkouts([]);
+        console.log('No saved workouts found, starting fresh');
+      }
+    } catch (error) {
+      console.error('Error loading workouts:', error);
+      setSaveError('Error loading saved workouts');
     }
   }, [currentProfile.id, getProfileData]);
 
   // Save planned workouts whenever they change
   useEffect(() => {
-    if (plannedWorkouts.length > 0) {
-      setProfileData('plannedWorkouts', plannedWorkouts);
+    if (plannedWorkouts.length >= 0) { // Changed from > 0 to >= 0 to save empty arrays
+      try {
+        setProfileData('plannedWorkouts', plannedWorkouts);
+        console.log('Saved workouts:', plannedWorkouts.length);
+        if (saveError) setSaveError(''); // Clear any previous errors
+      } catch (error) {
+        console.error('Error saving workouts:', error);
+        setSaveError('Failed to save workout data');
+      }
     }
   }, [plannedWorkouts, currentProfile.id, setProfileData]);
 
   const createPlannedWorkout = () => {
-    if (title && category && subcategory && scheduledDate && estimatedDuration && participants.length > 0) {
+    setSaveError('');
+    
+    if (!title.trim()) {
+      setSaveError('Title is required');
+      return;
+    }
+    if (!scheduledDate) {
+      setSaveError('Scheduled date is required');
+      return;
+    }
+    if (!estimatedDuration || parseInt(estimatedDuration) <= 0) {
+      setSaveError('Valid estimated duration is required');
+      return;
+    }
+    if (participants.length === 0) {
+      setSaveError('At least one participant is required');
+      return;
+    }
+
+    try {
       const newWorkout: PlannedWorkout = {
         id: Date.now().toString(),
         sport,
-        title,
-        description,
-        category,
-        subcategory,
+        title: title.trim(),
+        description: description.trim(),
+        category: category.trim(),
+        subcategory: subcategory.trim(),
         scheduledDate,
         estimatedDuration: parseInt(estimatedDuration),
         participants,
         coach: currentProfile.id,
         isCompleted: false,
-        notes
+        notes: notes.trim(),
+        exercises: exercises.map(ex => ({ ...ex })) // Create a copy of exercises
       };
       
-      setPlannedWorkouts([...plannedWorkouts, newWorkout]);
+      setPlannedWorkouts(prev => [...prev, newWorkout]);
+      setSaveSuccess('Workout plan created successfully!');
       
       // Clear form
-      setTitle('');
-      setDescription('');
-      setCategory('');
-      setSubcategory('');
-      setScheduledDate('');
-      setEstimatedDuration('');
-      setParticipants([]);
-      setNotes('');
+      clearForm();
       setOpenDialog(false);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSaveSuccess(''), 3000);
+    } catch (error) {
+      console.error('Error creating workout:', error);
+      setSaveError('Failed to create workout plan');
     }
+  };
+
+  const clearForm = () => {
+    setTitle('');
+    setDescription('');
+    setCategory('');
+    setSubcategory('');
+    setScheduledDate('');
+    setEstimatedDuration('');
+    setParticipants([]);
+    setNotes('');
+    setExercises([]);
+  };
+
+  const addExercise = () => {
+    if (!exerciseName.trim()) {
+      setSaveError('Exercise name is required');
+      return;
+    }
+
+    try {
+      const newExercise: Exercise = {
+        id: Date.now().toString(),
+        name: exerciseName.trim(),
+        description: exerciseDescription.trim(),
+        videoUrl: exerciseVideoUrl.trim() || undefined,
+        notes: exerciseNotes.trim() || undefined,
+        sets: exerciseSets ? parseInt(exerciseSets) : undefined,
+        reps: exerciseReps.trim() || undefined,
+        weight: exerciseWeight.trim() || undefined,
+        restTime: exerciseRestTime.trim() || undefined,
+      };
+
+      setExercises(prev => [...prev, newExercise]);
+      
+      // Clear exercise form
+      setExerciseName('');
+      setExerciseDescription('');
+      setExerciseVideoUrl('');
+      setExerciseNotes('');
+      setExerciseSets('');
+      setExerciseReps('');
+      setExerciseWeight('');
+      setExerciseRestTime('');
+      setOpenExerciseDialog(false);
+      setSaveError('');
+    } catch (error) {
+      console.error('Error adding exercise:', error);
+      setSaveError('Failed to add exercise');
+    }
+  };
+
+  const removeExercise = (exerciseId: string) => {
+    setExercises(prev => prev.filter(ex => ex.id !== exerciseId));
+  };
+
+  const extractYouTubeId = (url: string): string | null => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
   };
 
   const deleteWorkout = (id: string) => {
@@ -703,7 +833,7 @@ const WorkoutPlanningPage: React.FC = () => {
       </Grid>
 
       {/* Create Workout Dialog */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog open={openDialog} onClose={() => {setOpenDialog(false); clearForm(); setSaveError('');}} maxWidth="md" fullWidth>
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <PlanIcon sx={{ mr: 1 }} />
@@ -711,8 +841,37 @@ const WorkoutPlanningPage: React.FC = () => {
           </Box>
         </DialogTitle>
         <DialogContent>
+          {saveError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {saveError}
+            </Alert>
+          )}
+          
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Workout Title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                placeholder="e.g., Morning Basketball Training"
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                multiline
+                rows={2}
+                placeholder="Brief description of the workout session"
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={4}>
               <FormControl fullWidth>
                 <InputLabel>Sport</InputLabel>
                 <Select
@@ -736,7 +895,7 @@ const WorkoutPlanningPage: React.FC = () => {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={4}>
               <FormControl fullWidth>
                 <InputLabel>Category</InputLabel>
                 <Select
@@ -754,7 +913,7 @@ const WorkoutPlanningPage: React.FC = () => {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={4}>
               <FormControl fullWidth disabled={!category}>
                 <InputLabel>Specific Activity</InputLabel>
                 <Select
@@ -768,56 +927,35 @@ const WorkoutPlanningPage: React.FC = () => {
                 </Select>
               </FormControl>
             </Grid>
-            
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Workout Title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., 'Basketball Shooting Practice'"
-              />
-            </Grid>
-            
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                multiline
-                rows={3}
-                placeholder="Describe what you'll work on in this session..."
-              />
-            </Grid>
-            
+
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Scheduled Date"
-                type="date"
+                label="Scheduled Date & Time"
+                type="datetime-local"
                 value={scheduledDate}
                 onChange={(e) => setScheduledDate(e.target.value)}
-                InputLabelProps={{
-                  shrink: true,
-                }}
+                InputLabelProps={{ shrink: true }}
+                required
               />
             </Grid>
-            
+
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Duration (minutes)"
+                label="Estimated Duration (minutes)"
                 type="number"
                 value={estimatedDuration}
                 onChange={(e) => setEstimatedDuration(e.target.value)}
-                placeholder="60"
+                required
+                inputProps={{ min: 1, max: 480 }}
               />
             </Grid>
-            
+
+            {/* Participants Selection */}
             <Grid item xs={12}>
-              <Typography variant="subtitle2" gutterBottom>
-                Participants
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Select Participants *
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                 {profiles.map((profile) => (
@@ -832,22 +970,88 @@ const WorkoutPlanningPage: React.FC = () => {
                 ))}
               </Box>
             </Grid>
-            
+
+            {/* Exercises Section */}
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6">
+                  Exercises ({exercises.length})
+                </Typography>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={() => setOpenExerciseDialog(true)}
+                >
+                  Add Exercise
+                </Button>
+              </Box>
+              
+              {exercises.length > 0 && (
+                <List dense>
+                  {exercises.map((exercise) => (
+                    <ListItem key={exercise.id} sx={{ border: 1, borderColor: 'divider', borderRadius: 1, mb: 1 }}>
+                      <ListItemText
+                        primary={exercise.name}
+                        secondary={
+                          <Box>
+                            {exercise.description && (
+                              <Typography variant="body2" color="text.secondary">
+                                {exercise.description}
+                              </Typography>
+                            )}
+                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
+                              {exercise.sets && <Chip size="small" label={`${exercise.sets} sets`} />}
+                              {exercise.reps && <Chip size="small" label={`${exercise.reps} reps`} />}
+                              {exercise.weight && <Chip size="small" label={`${exercise.weight}`} />}
+                              {exercise.restTime && <Chip size="small" label={`Rest: ${exercise.restTime}`} />}
+                            </Box>
+                            {exercise.videoUrl && (
+                              <Box sx={{ mt: 1 }}>
+                                <Chip 
+                                  size="small" 
+                                  label="📹 Video Guide" 
+                                  color="primary" 
+                                  variant="outlined"
+                                  onClick={() => window.open(exercise.videoUrl, '_blank')}
+                                  clickable
+                                />
+                              </Box>
+                            )}
+                          </Box>
+                        }
+                      />
+                      <IconButton
+                        edge="end"
+                        color="error"
+                        size="small"
+                        onClick={() => removeExercise(exercise.id)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+            </Grid>
+
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Notes"
+                label="Additional Notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 multiline
-                rows={2}
-                placeholder="Any additional notes for this workout..."
+                rows={3}
+                placeholder="Any additional notes or reminders for this workout..."
               />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
+          <Button onClick={() => {setOpenDialog(false); clearForm(); setSaveError('');}}>
+            Cancel
+          </Button>
           <Button 
             onClick={createPlannedWorkout} 
             variant="contained"
@@ -857,6 +1061,137 @@ const WorkoutPlanningPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Add Exercise Dialog */}
+      <Dialog open={openExerciseDialog} onClose={() => setOpenExerciseDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Add Exercise</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Exercise Name"
+                value={exerciseName}
+                onChange={(e) => setExerciseName(e.target.value)}
+                required
+                placeholder="e.g., Push-ups, Free throws, Burpees"
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Description"
+                value={exerciseDescription}
+                onChange={(e) => setExerciseDescription(e.target.value)}
+                multiline
+                rows={2}
+                placeholder="Brief description of the exercise"
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="YouTube Video URL (optional)"
+                value={exerciseVideoUrl}
+                onChange={(e) => setExerciseVideoUrl(e.target.value)}
+                placeholder="https://youtube.com/watch?v=..."
+                helperText="Paste a YouTube URL to link a demonstration video"
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Exercise Notes & Instructions"
+                value={exerciseNotes}
+                onChange={(e) => setExerciseNotes(e.target.value)}
+                multiline
+                rows={3}
+                placeholder="Detailed instructions on how to perform this exercise, form tips, safety notes, etc."
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={3}>
+              <TextField
+                fullWidth
+                label="Sets"
+                type="number"
+                value={exerciseSets}
+                onChange={(e) => setExerciseSets(e.target.value)}
+                placeholder="3"
+                inputProps={{ min: 1, max: 20 }}
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={3}>
+              <TextField
+                fullWidth
+                label="Reps/Duration"
+                value={exerciseReps}
+                onChange={(e) => setExerciseReps(e.target.value)}
+                placeholder="10-12 or 30 seconds"
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={3}>
+              <TextField
+                fullWidth
+                label="Weight (optional)"
+                value={exerciseWeight}
+                onChange={(e) => setExerciseWeight(e.target.value)}
+                placeholder="50 lbs or bodyweight"
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={3}>
+              <TextField
+                fullWidth
+                label="Rest Time"
+                value={exerciseRestTime}
+                onChange={(e) => setExerciseRestTime(e.target.value)}
+                placeholder="60 seconds"
+              />
+            </Grid>
+
+            {exerciseVideoUrl && extractYouTubeId(exerciseVideoUrl) && (
+              <Grid item xs={12}>
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Video Preview:
+                  </Typography>
+                  <Box 
+                    component="iframe"
+                    src={`https://www.youtube.com/embed/${extractYouTubeId(exerciseVideoUrl)}`}
+                    sx={{ width: '100%', height: 200, border: 'none', borderRadius: 1 }}
+                    allowFullScreen
+                  />
+                </Box>
+              </Grid>
+            )}
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenExerciseDialog(false)}>Cancel</Button>
+          <Button 
+            onClick={addExercise}
+            variant="contained"
+            disabled={!exerciseName.trim()}
+          >
+            Add Exercise
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Success/Error Messages */}
+      {saveSuccess && (
+        <Box sx={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999 }}>
+          <Alert severity="success" onClose={() => setSaveSuccess('')}>
+            {saveSuccess}
+          </Alert>
+        </Box>
+      )}
     </Container>
   );
 };
