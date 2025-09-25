@@ -51,6 +51,7 @@ import {
   Search as SearchIcon
 } from '@mui/icons-material';
 import { exerciseRoutineService, WorkoutRoutine, Exercise, ExerciseSet, RoutineExercise, WorkoutSession } from '../utils/exerciseRoutines';
+import { useProfile } from '../contexts/ProfileContext';
 
 interface TabPanelProps {
   children?: any;
@@ -68,6 +69,7 @@ function TabPanel(props: TabPanelProps) {
 }
 
 const ExerciseRoutinesPage: React.FC = () => {
+  const { currentProfile, getProfileData, setProfileData } = useProfile();
   const [tabValue, setTabValue] = useState(0);
   const [routines, setRoutines] = useState<WorkoutRoutine[]>([]);
   const [currentSession, setCurrentSession] = useState<WorkoutSession | null>(null);
@@ -106,23 +108,35 @@ const ExerciseRoutinesPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (currentProfile) {
+      loadData();
+    }
+  }, [currentProfile]);
 
   const loadData = () => {
-    setRoutines(exerciseRoutineService.getAllRoutines());
-    setCurrentSession(exerciseRoutineService.getCurrentSession());
+    if (!currentProfile) return;
     
-    // Load custom exercises from localStorage
-    const savedCustomExercises = localStorage.getItem('customExercises');
-    if (savedCustomExercises) {
-      setCustomExercises(JSON.parse(savedCustomExercises));
-    }
+    // Load profile-specific routines
+    const profileRoutines = getProfileData('workoutRoutines') || [];
+    setRoutines(profileRoutines);
+    
+    // Load profile-specific current session
+    const profileCurrentSession = getProfileData('currentWorkoutSession');
+    setCurrentSession(profileCurrentSession);
+    
+    // Load profile-specific custom exercises
+    const profileCustomExercises = getProfileData('customExercises') || [];
+    setCustomExercises(profileCustomExercises);
   };
 
   const handleCreateRoutine = () => {
     if (!routineForm.name.trim()) {
       setSnackbar({ open: true, message: 'Please enter a routine name', severity: 'error' });
+      return;
+    }
+
+    if (!currentProfile) {
+      setSnackbar({ open: true, message: 'No active profile selected', severity: 'error' });
       return;
     }
 
@@ -136,13 +150,22 @@ const ExerciseRoutinesPage: React.FC = () => {
         return total + exerciseTime;
       }, 0) / 60; // Convert to minutes
 
-      exerciseRoutineService.createRoutine({
+      // Create routine with profile-specific storage
+      const newRoutine: WorkoutRoutine = {
+        id: Date.now().toString(),
         ...routineForm,
         estimatedDuration: Math.ceil(estimatedDuration),
         tags: [],
         isFavorite: false,
-        createdBy: 'user'
-      });
+        createdBy: 'user',
+        createdAt: new Date().toISOString(),
+        timesCompleted: 0
+      };
+
+      // Save to profile-specific storage
+      const currentRoutines = getProfileData('workoutRoutines') || [];
+      const updatedRoutines = [...currentRoutines, newRoutine];
+      setProfileData('workoutRoutines', updatedRoutines);
 
       setCreateRoutineOpen(false);
       setRoutineForm({
@@ -191,6 +214,11 @@ const ExerciseRoutinesPage: React.FC = () => {
       return;
     }
 
+    if (!currentProfile) {
+      setSnackbar({ open: true, message: 'No active profile selected', severity: 'error' });
+      return;
+    }
+
     const newExercise: Exercise = {
       id: `custom_${Date.now()}`,
       name: customExerciseForm.name,
@@ -209,8 +237,8 @@ const ExerciseRoutinesPage: React.FC = () => {
     const updatedCustomExercises = [...customExercises, newExercise];
     setCustomExercises(updatedCustomExercises);
     
-    // Save to localStorage
-    localStorage.setItem('customExercises', JSON.stringify(updatedCustomExercises));
+    // Save to profile-specific storage
+    setProfileData('customExercises', updatedCustomExercises);
 
     // Add to routine if creating one
     handleAddExerciseToRoutine(newExercise);
@@ -264,8 +292,32 @@ const ExerciseRoutinesPage: React.FC = () => {
   };
 
   const handleStartWorkout = (routineId: string) => {
+    if (!currentProfile) return;
+    
     try {
-      const session = exerciseRoutineService.startWorkoutSession(routineId);
+      const routine = routines.find(r => r.id === routineId);
+      if (!routine) {
+        setSnackbar({ open: true, message: 'Routine not found', severity: 'error' });
+        return;
+      }
+
+      // Create workout session for profile-specific storage
+      const session: WorkoutSession = {
+        id: Date.now().toString(),
+        routineId,
+        routineName: routine.name,
+        startTime: new Date().toISOString(),
+        exercises: routine.exercises.map(exercise => ({
+          ...exercise,
+          sets: exercise.sets.map(set => ({ ...set, completed: false }))
+        })),
+        totalSets: routine.exercises.reduce((total, exercise) => total + exercise.sets.length, 0),
+        completedSets: 0,
+        status: 'in-progress' as const
+      };
+
+      // Save to profile-specific storage
+      setProfileData('currentWorkoutSession', session);
       setCurrentSession(session);
       setWorkoutSessionOpen(true);
       setSnackbar({ open: true, message: 'Workout started!', severity: 'success' });
@@ -275,15 +327,38 @@ const ExerciseRoutinesPage: React.FC = () => {
   };
 
   const handleCompleteSet = (exerciseIndex: number, setIndex: number) => {
-    if (!currentSession) return;
+    if (!currentSession || !currentProfile) return;
     
-    const updatedSession = exerciseRoutineService.completeSet(exerciseIndex, setIndex);
+    const updatedSession = { ...currentSession };
+    updatedSession.exercises[exerciseIndex].sets[setIndex].completed = true;
+    updatedSession.completedSets = updatedSession.exercises.reduce((total, exercise) => 
+      total + exercise.sets.filter(set => set.completed).length, 0
+    );
+
+    setProfileData('currentWorkoutSession', updatedSession);
     setCurrentSession(updatedSession);
   };
 
   const handleFinishWorkout = (rating?: number, notes?: string) => {
+    if (!currentProfile || !currentSession) return;
+    
     try {
-      exerciseRoutineService.finishWorkoutSession(rating, notes);
+      // Create finished session
+      const finishedSession: WorkoutSession = {
+        ...currentSession,
+        endTime: new Date().toISOString(),
+        duration: Math.round((Date.now() - new Date(currentSession.startTime).getTime()) / 60000),
+        rating,
+        notes,
+        status: 'completed' as const
+      };
+
+      // Save completed session to workout history (you might want to add this)
+      const workoutHistory = getProfileData('workoutHistory') || [];
+      setProfileData('workoutHistory', [...workoutHistory, finishedSession]);
+
+      // Clear current session
+      setProfileData('currentWorkoutSession', null);
       setCurrentSession(null);
       setWorkoutSessionOpen(false);
       setSnackbar({ open: true, message: 'Workout completed!', severity: 'success' });
@@ -294,25 +369,51 @@ const ExerciseRoutinesPage: React.FC = () => {
   };
 
   const handleToggleFavorite = (routineId: string) => {
-    const routine = routines.find(r => r.id === routineId);
-    if (routine) {
-      exerciseRoutineService.updateRoutine(routineId, { isFavorite: !routine.isFavorite });
-      loadData();
-    }
+    if (!currentProfile) return;
+    
+    const currentRoutines: WorkoutRoutine[] = getProfileData('workoutRoutines') || [];
+    const updatedRoutines = currentRoutines.map((routine: WorkoutRoutine) => 
+      routine.id === routineId 
+        ? { ...routine, isFavorite: !routine.isFavorite }
+        : routine
+    );
+    
+    setProfileData('workoutRoutines', updatedRoutines);
+    loadData();
   };
 
   const handleDeleteRoutine = (routineId: string) => {
+    if (!currentProfile) return;
+    
     if (window.confirm('Are you sure you want to delete this routine?')) {
-      exerciseRoutineService.deleteRoutine(routineId);
+      const currentRoutines: WorkoutRoutine[] = getProfileData('workoutRoutines') || [];
+      const updatedRoutines = currentRoutines.filter((routine: WorkoutRoutine) => routine.id !== routineId);
+      
+      setProfileData('workoutRoutines', updatedRoutines);
       loadData();
       setSnackbar({ open: true, message: 'Routine deleted', severity: 'success' });
     }
   };
 
   const handleDuplicateRoutine = (routineId: string) => {
-    exerciseRoutineService.duplicateRoutine(routineId);
-    loadData();
-    setSnackbar({ open: true, message: 'Routine duplicated', severity: 'success' });
+    if (!currentProfile) return;
+    
+    const currentRoutines: WorkoutRoutine[] = getProfileData('workoutRoutines') || [];
+    const routineToDuplicate = currentRoutines.find((r: WorkoutRoutine) => r.id === routineId);
+    
+    if (routineToDuplicate) {
+      const duplicatedRoutine = {
+        ...routineToDuplicate,
+        id: Date.now().toString(),
+        name: `${routineToDuplicate.name} (Copy)`,
+        createdAt: new Date().toISOString()
+      };
+      
+      const updatedRoutines = [...currentRoutines, duplicatedRoutine];
+      setProfileData('workoutRoutines', updatedRoutines);
+      loadData();
+      setSnackbar({ open: true, message: 'Routine duplicated', severity: 'success' });
+    }
   };
 
   const getFilteredExercises = () => {
