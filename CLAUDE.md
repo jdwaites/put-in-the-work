@@ -49,22 +49,49 @@ repo root, then open `http://localhost:8000`.
   carry `dependsOnLocalId` and are held back until the parent resolves.
 - `js/ui.js` — shared tap-friendly components: player switcher, tap-select
   segmented control, numeric stepper, toast, sync status badge.
+- `js/recent.js` — "last 5 entries + delete" used at the bottom of every
+  entry screen. Reads go straight to the Airtable REST API (GET, filtered by
+  player via `SEARCH(.... ARRAYJOIN({Player}))`); pending/not-yet-synced
+  items are pulled from the local queue so a just-saved entry shows up
+  immediately. Delete uses a two-tap "Confirm?" button for already-synced
+  rows (DELETE to Airtable) but deletes pending rows on one tap (it's just
+  removing a local queue item, nothing destructive yet). Deleting a Shooting
+  Session cascades to its Shot Spot Results, both for synced sessions
+  (`deleteShootingSessionCascade`) and pending ones (`onDeletePending` in
+  `js/screens/shooting.js` also removes queue items whose
+  `dependsOnLocalId` points at the session being deleted).
 - `js/screens/*.js` — one file per entry screen (home, workout, strength,
   shooting, benchmark, game, settings). Each is a plain object with a
   `render(container)` method; `js/app.js` is a minimal hash-based router.
+  Home filters its tiles by the current player's `screens` list in
+  `js/data.js` (Age only sees Workout + Strength — no basketball-
+  specific screens).
 
 ## Known simplifications (not gaps to "fix" without asking)
 
-- Workout Templates has no management UI yet — the table is empty in the
-  live base and only used as an optional link on the Workout Log screen if
-  templates exist later.
+- Workout Templates are created inline from the Workout Log screen (name +
+  description + optional video link only — no separate management screen,
+  no edit, no delete). Creating one while offline queues it the same way as
+  any other record and the pending Workout Log correctly depends on it via
+  `dependsOnLocalId`/`linkFieldForParent` until it syncs.
 - Strength Log's "link to a recent workout" only offers workouts that have
   *already synced* (from `RecentWorkouts` cache), not ones still sitting in
   the local queue — avoids a second dependency chain for a field the schema
   marks optional.
+- "Recent entries" fetches live from Airtable (needs a token + connection);
+  offline it shows pending queue items only, not older synced history.
 - No native mobile app, no AWS/GCP infra, no meal/nutrition tracking, no
   game-speed-vs-standstill shot context — all explicitly out of scope per
   the original project brief.
+
+## Players table / schema additions since initial build (2026-08-29)
+
+- Added a 4th player, **Age** (`recgP5EtYuvNd96io`, Age Group "adult"),
+  who does walks rather than basketball — her `screens` list in
+  `js/data.js` only includes `workout` and `strength`.
+- Added a **Video URL** field (Airtable type `url`) to both **Workout Logs**
+  and **Workout Templates**, for linking a YouTube video the workout
+  follows. Purely additive — no existing fields were touched.
 
 ## Testing
 

@@ -1,6 +1,8 @@
 // Live Airtable schema + seeded reference data for base "Putting in the Work".
-// Pulled from the Airtable API on 2026-08-28. If the base schema changes,
-// re-fetch via the Airtable API and update this file — do not guess field names.
+// Pulled from the Airtable API on 2026-08-28, updated 2026-08-29 (Video URL
+// fields on Workout Logs/Templates, Age player). If the base schema
+// changes, re-fetch via the Airtable API and update this file — do not guess
+// field names.
 
 const BASE_ID = 'appYZdp23DOulnJwm';
 
@@ -21,6 +23,11 @@ const TABLES = {
 // keys in the REST API "fields" object). Do not rename without checking the
 // live base first — a couple of tables use "Log Entry" instead of "Name".
 const FIELDS = {
+  workoutTemplates: {
+    name: 'Name',
+    description: 'Description',
+    videoUrl: 'Video URL',
+  },
   workoutLogs: {
     logEntry: 'Log Entry',
     comments: 'Comments',
@@ -31,6 +38,7 @@ const FIELDS = {
     intensity: 'Intensity (Effort)',
     grade: 'Performance Grade',
     category: 'Category',
+    videoUrl: 'Video URL',
   },
   strengthLogs: {
     logEntry: 'Log Entry',
@@ -82,11 +90,16 @@ const FIELDS = {
 };
 
 // Seeded reference records (record IDs are stable — these are the real rows
-// in the live base, not placeholders).
+// in the live base, not placeholders). `screens` controls which home-screen
+// tiles show up for that profile — Age does walks, not basketball, so
+// the basketball-specific screens (shooting/benchmark/game) are hidden for
+// her rather than shown-but-irrelevant.
+const ALL_SCREENS = ['workout', 'strength', 'shooting', 'benchmark', 'game'];
 const PLAYERS = [
-  { id: 'reclIhUYdKG4LeOkH', name: 'Mal', ageGroup: 'adult' },
-  { id: 'recZ4Qha8inCHDE8s', name: 'Ike', ageGroup: '12-14' },
-  { id: 'recuJGpFhmRW4V1GK', name: 'Khi', ageGroup: '9-11' },
+  { id: 'reclIhUYdKG4LeOkH', name: 'Mal', ageGroup: 'adult', screens: ALL_SCREENS },
+  { id: 'recZ4Qha8inCHDE8s', name: 'Ike', ageGroup: '12-14', screens: ALL_SCREENS },
+  { id: 'recuJGpFhmRW4V1GK', name: 'Khi', ageGroup: '9-11', screens: ALL_SCREENS },
+  { id: 'recgP5EtYuvNd96io', name: 'Age', ageGroup: 'adult', screens: ['workout', 'strength'] },
 ];
 
 const SPOTS = [

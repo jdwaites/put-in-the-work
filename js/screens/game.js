@@ -21,7 +21,9 @@ const GameScreen = {
 
     const body = h('div', { class: 'screen-body' });
     const formHost = h('div');
+    const recentHost = h('div');
     body.appendChild(formHost);
+    body.appendChild(recentHost);
     container.appendChild(body);
 
     function renderForm() {
@@ -74,5 +76,14 @@ const GameScreen = {
     }
 
     renderForm();
+
+    renderRecentEntries(recentHost, {
+      tableId: TABLES.gameLog.id,
+      playerId,
+      playerFieldName: FIELDS.gameLog.player,
+      limit: 5,
+      formatSynced: (r) => `vs ${r.fields[FIELDS.gameLog.opponent] || 'Unknown'} – ${r.fields[FIELDS.gameLog.points] ?? 0}p – ${r.fields[FIELDS.gameLog.date] || ''}`,
+      formatPending: (item) => item.screenLabel,
+    });
   },
 };

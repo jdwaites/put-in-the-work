@@ -33,8 +33,10 @@ const ShootingScreen = {
 
     const formHost = h('div');
     const spotListHost = h('div', { class: 'spot-list' });
+    const recentHost = h('div');
     body.appendChild(formHost);
     body.appendChild(spotListHost);
+    body.appendChild(recentHost);
     container.appendChild(body);
 
     function renderSpotList() {
@@ -154,5 +156,19 @@ const ShootingScreen = {
     }
 
     renderAll();
+
+    renderRecentEntries(recentHost, {
+      tableId: TABLES.shootingSessions.id,
+      playerId,
+      playerFieldName: FIELDS.shootingSessions.player,
+      limit: 5,
+      formatSynced: (r) => `Session – ${r.fields[FIELDS.shootingSessions.date] || ''}`,
+      formatPending: (item) => item.screenLabel,
+      onDeleteRecord: (recordId) => deleteShootingSessionCascade(recordId),
+      onDeletePending: (item) => {
+        Queue.all().filter((i) => i.dependsOnLocalId === item.localId).forEach((i) => Queue.remove(i.localId));
+        Queue.remove(item.localId);
+      },
+    });
   },
 };

@@ -7,12 +7,12 @@ const HomeScreen = {
     container.appendChild(h('div', { class: 'home-greeting', text: `Hey ${player.name} — what are we logging?` }));
 
     const tiles = [
-      { label: 'Log Workout', hash: '#workout', icon: '🏀' },
-      { label: 'Log Strength', hash: '#strength', icon: '💪' },
-      { label: 'Log Shooting', hash: '#shooting', icon: '🎯' },
-      { label: 'Log Benchmark', hash: '#benchmark', icon: '📏' },
-      { label: 'Log Game', hash: '#game', icon: '🏆' },
-    ];
+      { key: 'workout', label: 'Log Workout', hash: '#workout', icon: '🏀' },
+      { key: 'strength', label: 'Log Strength', hash: '#strength', icon: '💪' },
+      { key: 'shooting', label: 'Log Shooting', hash: '#shooting', icon: '🎯' },
+      { key: 'benchmark', label: 'Log Benchmark', hash: '#benchmark', icon: '📏' },
+      { key: 'game', label: 'Log Game', hash: '#game', icon: '🏆' },
+    ].filter((t) => player.screens.includes(t.key));
     const grid = h('div', { class: 'tile-grid' });
     tiles.forEach((t) => {
       grid.appendChild(

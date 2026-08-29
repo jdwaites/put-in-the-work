@@ -29,12 +29,14 @@ const StrengthScreen = {
     }
     if (isYoungest) {
       body.appendChild(h('div', { class: 'age-hint', text: 'Khi mode: defaults to bodyweight, high reps. No max-weight testing here.' }));
-    } else {
+    } else if (player.ageGroup === '12-14') {
       body.appendChild(h('div', { class: 'age-hint', text: 'Ike mode: track weight × reps × sets. Occasional 5-rep max is fine — skip true 1RM attempts.' }));
     }
 
     const formHost = h('div');
+    const recentHost = h('div');
     body.appendChild(formHost);
+    body.appendChild(recentHost);
     container.appendChild(body);
 
     function renderForm() {
@@ -114,5 +116,14 @@ const StrengthScreen = {
     }
 
     renderForm();
+
+    renderRecentEntries(recentHost, {
+      tableId: TABLES.strengthLogs.id,
+      playerId,
+      playerFieldName: FIELDS.strengthLogs.player,
+      limit: 5,
+      formatSynced: (r) => `${r.fields[FIELDS.strengthLogs.exercise] || 'Exercise'} – ${r.fields[FIELDS.strengthLogs.weight] ?? 0}×${r.fields[FIELDS.strengthLogs.reps] ?? 0}×${r.fields[FIELDS.strengthLogs.sets] ?? 0} – ${r.fields[FIELDS.strengthLogs.date] || ''}`,
+      formatPending: (item) => item.screenLabel,
+    });
   },
 };

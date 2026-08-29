@@ -23,7 +23,9 @@ const BenchmarkScreen = {
       }));
     }
     const formHost = h('div');
+    const recentHost = h('div');
     body.appendChild(formHost);
+    body.appendChild(recentHost);
     container.appendChild(body);
 
     function renderForm() {
@@ -83,5 +85,18 @@ const BenchmarkScreen = {
     }
 
     renderForm();
+
+    renderRecentEntries(recentHost, {
+      tableId: TABLES.benchmarkResults.id,
+      playerId,
+      playerFieldName: FIELDS.benchmarkResults.player,
+      limit: 5,
+      formatSynced: (r) => {
+        const testId = (r.fields[FIELDS.benchmarkResults.test] || [])[0];
+        const testName = (TESTS.find((t) => t.id === testId) || {}).name || 'Test';
+        return `${testName} – ${r.fields[FIELDS.benchmarkResults.resultValue] ?? ''} – ${r.fields[FIELDS.benchmarkResults.date] || ''}`;
+      },
+      formatPending: (item) => item.screenLabel,
+    });
   },
 };
