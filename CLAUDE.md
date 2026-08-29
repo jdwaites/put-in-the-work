@@ -18,6 +18,21 @@ only, never sent anywhere but Airtable).
 Serve it with any static file server, e.g. `python3 -m http.server` from the
 repo root, then open `http://localhost:8000`.
 
+**Deployed at** https://jdwaites.github.io/put-in-the-work/ via GitHub Pages
+(builds automatically from `main` on every push). Repo must stay public for
+Pages to work — the account is on GitHub Free, which only serves Pages sites
+from public repos (Pro/Team/Enterprise support private-repo Pages). If it
+ever needs to go private, Netlify's free tier can deploy the same static
+files from a private repo instead.
+
+`service-worker.js` caches the whole app shell (stale-while-revalidate) so
+the installed home-screen icon opens with zero signal — this is what
+actually makes "gym wifi is unreliable" survivable, not the hosting choice.
+It only has to fetch fresh once after a deploy; every launch after that
+serves from cache instantly regardless of connectivity. It deliberately
+ignores anything cross-origin (api.airtable.com) — that traffic still goes
+through the local-first queue in `js/sync.js`, unrelated to this cache.
+
 ## Airtable base (source of truth for schema)
 
 - Base: **Putting in the Work**, ID `appYZdp23DOulnJwm`
