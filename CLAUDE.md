@@ -1,10 +1,16 @@
 # Putting in the Work
 
-A basketball/weightlifting training tracker for three users — Mal, Ike
-(12–14), and Khi (9–11) — used to log workouts, strength sets, shooting
-practice, athletic benchmarks, and game performance. Analysis happens outside
-this repo (Claude + Airtable's native charts); this repo is only the data
+A basketball/weightlifting training tracker for a family of four players
+(three kids at different age brackets, one adult who does walks instead of
+basketball) — used to log workouts, strength sets, shooting practice,
+athletic benchmarks, and game performance. Analysis happens outside this
+repo (Claude + Airtable's native charts); this repo is only the data
 capture layer.
+
+Player display names in `js/data.js` are pseudonyms, not real names/emails —
+this repo is public on GitHub, the linked Airtable base is not. See the
+"Players table" section below before ever "fixing" a name back to something
+that looks more real.
 
 ## What this is
 
@@ -65,10 +71,13 @@ through the local-first queue in `js/sync.js`, unrelated to this cache.
 - `js/ui.js` — shared tap-friendly components: player switcher, tap-select
   segmented control, numeric stepper, toast, sync status badge.
 - `js/recent.js` — "last 5 entries + delete" used at the bottom of every
-  entry screen. Reads go straight to the Airtable REST API (GET, filtered by
-  player via `SEARCH(.... ARRAYJOIN({Player}))`); pending/not-yet-synced
-  items are pulled from the local queue so a just-saved entry shows up
-  immediately. Delete uses a two-tap "Confirm?" button for already-synced
+  entry screen. Reads go straight to the Airtable REST API (GET a recent
+  window, then filter client-side by linked-record ID — deliberately not a
+  server-side filter on the Player's Airtable display name, since this
+  file's player labels are pseudonyms that don't match the real name typed
+  into the base); pending/not-yet-synced items are pulled from the local
+  queue so a just-saved entry shows up immediately. Delete uses a two-tap
+  "Confirm?" button for already-synced
   rows (DELETE to Airtable) but deletes pending rows on one tap (it's just
   removing a local queue item, nothing destructive yet). Deleting a Shooting
   Session cascades to its Shot Spot Results, both for synced sessions
@@ -79,8 +88,8 @@ through the local-first queue in `js/sync.js`, unrelated to this cache.
   shooting, benchmark, game, settings). Each is a plain object with a
   `render(container)` method; `js/app.js` is a minimal hash-based router.
   Home filters its tiles by the current player's `screens` list in
-  `js/data.js` (Age only sees Workout + Strength — no basketball-
-  specific screens).
+  `js/data.js` (the walks-focused profile only sees Workout + Strength — no
+  basketball-specific screens).
 
 ## Known simplifications (not gaps to "fix" without asking)
 
@@ -101,9 +110,13 @@ through the local-first queue in `js/sync.js`, unrelated to this cache.
 
 ## Players table / schema additions since initial build (2026-08-29)
 
-- Added a 4th player, **Age** (`recgP5EtYuvNd96io`, Age Group "adult"),
-  who does walks rather than basketball — her `screens` list in
-  `js/data.js` only includes `workout` and `strength`.
+- Added a 4th player (`recgP5EtYuvNd96io`, Age Group "adult", displayed as
+  "Age" in `js/data.js`), who does walks rather than basketball — their
+  `screens` list only includes `workout` and `strength`.
+- All four `PLAYERS` display names in `js/data.js` are pseudonyms chosen to
+  keep this public repo from pairing real first names with ages. The
+  Airtable base's own Player "Name" field still has the real names — that's
+  fine, the base is private. Don't "fix" the mismatch; it's intentional.
 - Added a **Video URL** field (Airtable type `url`) to both **Workout Logs**
   and **Workout Templates**, for linking a YouTube video the workout
   follows. Purely additive — no existing fields were touched.

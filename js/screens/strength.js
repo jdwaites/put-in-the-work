@@ -6,7 +6,7 @@ const StrengthScreen = {
 
     const playerId = CurrentPlayer.get();
     const player = PLAYERS.find((p) => p.id === playerId);
-    const isYoungest = player.ageGroup === '9-11'; // Khi: bodyweight/high-rep defaults, no max-weight prompts
+    const isYoungest = player.ageGroup === '9-11'; // bodyweight/high-rep defaults, no max-weight prompts
     const last = LastEntry.get('strength', playerId);
 
     const state = {
@@ -28,9 +28,9 @@ const StrengthScreen = {
       }));
     }
     if (isYoungest) {
-      body.appendChild(h('div', { class: 'age-hint', text: 'Khi mode: defaults to bodyweight, high reps. No max-weight testing here.' }));
+      body.appendChild(h('div', { class: 'age-hint', text: `${player.name} mode: defaults to bodyweight, high reps. No max-weight testing here.` }));
     } else if (player.ageGroup === '12-14') {
-      body.appendChild(h('div', { class: 'age-hint', text: 'Ike mode: track weight × reps × sets. Occasional 5-rep max is fine — skip true 1RM attempts.' }));
+      body.appendChild(h('div', { class: 'age-hint', text: `${player.name} mode: track weight × reps × sets. Occasional 5-rep max is fine — skip true 1RM attempts.` }));
     }
 
     const formHost = h('div');

@@ -34,17 +34,20 @@ async function airtableDeleteMany(tableId, recordIds) {
   return true;
 }
 
-async function fetchRecentRecords(tableId, playerName, limit) {
-  const params = {
-    maxRecords: String(limit),
+// Fetches a recent window and filters client-side by linked record ID,
+// rather than filtering server-side by the Player's Airtable display name —
+// that would require this (public) file's player labels to match whatever
+// name is actually typed into the Airtable base, which they deliberately
+// don't (see the comment on PLAYERS in js/data.js).
+async function fetchRecentRecords(tableId, playerFieldName, playerId, limit) {
+  const data = await airtableGet(tableId, {
+    maxRecords: '100',
     'sort[0][field]': 'Date',
     'sort[0][direction]': 'desc',
-  };
-  if (playerName) {
-    params.filterByFormula = `SEARCH("${playerName}", ARRAYJOIN({Player}))`;
-  }
-  const data = await airtableGet(tableId, params);
-  return data.records;
+  });
+  return data.records
+    .filter((r) => (r.fields[playerFieldName] || []).includes(playerId))
+    .slice(0, limit);
 }
 
 // Deletes a Shooting Session and every Shot Spot Result linked to it, since
@@ -96,7 +99,6 @@ function renderRecentEntries(host, opts) {
     host.innerHTML = '';
     host.appendChild(h('h3', { class: 'section-heading', text: `Recent (last ${limit})` }));
 
-    const player = PLAYERS.find((p) => p.id === opts.playerId);
     const pendingItems = Queue.all().filter(
       (i) => i.tableId === opts.tableId
         && i.fields[opts.playerFieldName]
@@ -112,7 +114,7 @@ function renderRecentEntries(host, opts) {
       offlineReason = 'Offline — recent entries unavailable right now.';
     } else {
       try {
-        synced = await fetchRecentRecords(opts.tableId, player.name, limit);
+        synced = await fetchRecentRecords(opts.tableId, opts.playerFieldName, opts.playerId, limit);
         fetchOk = true;
       } catch (e) {
         offlineReason = 'Could not load recent entries — check your connection.';

@@ -1,6 +1,6 @@
 // Live Airtable schema + seeded reference data for base "Putting in the Work".
 // Pulled from the Airtable API on 2026-08-28, updated 2026-08-29 (Video URL
-// fields on Workout Logs/Templates, Age player). If the base schema
+// fields on Workout Logs/Templates, a 4th player). If the base schema
 // changes, re-fetch via the Airtable API and update this file — do not guess
 // field names.
 
@@ -90,10 +90,13 @@ const FIELDS = {
 };
 
 // Seeded reference records (record IDs are stable — these are the real rows
-// in the live base, not placeholders). `screens` controls which home-screen
-// tiles show up for that profile — Age does walks, not basketball, so
-// the basketball-specific screens (shooting/benchmark/game) are hidden for
-// her rather than shown-but-irrelevant.
+// in the live base, not placeholders). `name` here is a display label only —
+// it does not have to match the "Name" field of the linked Player record in
+// Airtable, and deliberately doesn't (this file is public; the base isn't).
+// `screens` controls which home-screen tiles show up for that profile — one
+// player does walks, not basketball, so the basketball-specific screens
+// (shooting/benchmark/game) are hidden for that profile rather than
+// shown-but-irrelevant.
 const ALL_SCREENS = ['workout', 'strength', 'shooting', 'benchmark', 'game'];
 const PLAYERS = [
   { id: 'reclIhUYdKG4LeOkH', name: 'Mal', ageGroup: 'adult', screens: ALL_SCREENS },
