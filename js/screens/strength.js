@@ -1,0 +1,118 @@
+const StrengthScreen = {
+  render(container) {
+    container.innerHTML = '';
+    container.appendChild(backHeader('Log Strength'));
+    container.appendChild(playerSwitcher(() => StrengthScreen.render(container)));
+
+    const playerId = CurrentPlayer.get();
+    const player = PLAYERS.find((p) => p.id === playerId);
+    const isYoungest = player.ageGroup === '9-11'; // Khi: bodyweight/high-rep defaults, no max-weight prompts
+    const last = LastEntry.get('strength', playerId);
+
+    const state = {
+      date: todayISO(),
+      exercise: (last && last.exercise) || COMMON_EXERCISES[0],
+      customExercise: (last && last.customExercise) || '',
+      weight: last ? last.weight : (isYoungest ? 0 : 20),
+      reps: last ? last.reps : (isYoungest ? 12 : 8),
+      sets: last ? last.sets : 3,
+      linkedWorkoutId: '',
+      notes: '',
+    };
+
+    const body = h('div', { class: 'screen-body' });
+    if (last) {
+      body.appendChild(secondaryButton('↺ Repeat last entry', () => {
+        Object.assign(state, last, { notes: last.notes || '' });
+        renderForm();
+      }));
+    }
+    if (isYoungest) {
+      body.appendChild(h('div', { class: 'age-hint', text: 'Khi mode: defaults to bodyweight, high reps. No max-weight testing here.' }));
+    } else {
+      body.appendChild(h('div', { class: 'age-hint', text: 'Ike mode: track weight × reps × sets. Occasional 5-rep max is fine — skip true 1RM attempts.' }));
+    }
+
+    const formHost = h('div');
+    body.appendChild(formHost);
+    container.appendChild(body);
+
+    function renderForm() {
+      formHost.innerHTML = '';
+
+      const dateInput = h('input', { class: 'text-input', type: 'date', value: state.date, onchange: (e) => (state.date = e.target.value) });
+
+      const customExerciseInput = h('input', {
+        class: 'text-input',
+        placeholder: 'Type exercise name…',
+        value: state.customExercise,
+        style: state.exercise === 'Other' ? '' : 'display:none',
+        oninput: (e) => (state.customExercise = e.target.value),
+      });
+
+      const exerciseSelect = selectEl(
+        COMMON_EXERCISES.map((ex) => ({ value: ex, label: ex })),
+        state.exercise,
+        (v) => {
+          state.exercise = v;
+          customExerciseInput.style.display = v === 'Other' ? '' : 'none';
+        }
+      );
+
+      const weightStep = stepper(state.weight, { min: 0, max: 500, step: isYoungest ? 5 : 2.5, label: 'weight' }, (v) => (state.weight = v));
+      const repsStep = stepper(state.reps, { min: 1, max: 50, step: 1, label: 'reps' }, (v) => (state.reps = v));
+      const setsStep = stepper(state.sets, { min: 1, max: 10, step: 1, label: 'sets' }, (v) => (state.sets = v));
+
+      const recentWorkouts = RecentWorkouts.forPlayer(playerId);
+      const workoutOptions = [{ value: '', label: 'None' }, ...recentWorkouts.map((w) => ({ value: w.id, label: w.label }))];
+      const workoutSelect = selectEl(workoutOptions, state.linkedWorkoutId, (v) => (state.linkedWorkoutId = v));
+
+      const notesArea = textArea('Optional notes…', state.notes, (v) => (state.notes = v));
+
+      formHost.appendChild(fieldRow('Date', dateInput));
+      formHost.appendChild(fieldRow('Exercise', exerciseSelect));
+      formHost.appendChild(fieldRow('', customExerciseInput));
+      formHost.appendChild(fieldRow(isYoungest ? 'Weight (0 = bodyweight)' : 'Weight (lb)', weightStep));
+      formHost.appendChild(fieldRow('Reps', repsStep));
+      formHost.appendChild(fieldRow('Sets', setsStep));
+      formHost.appendChild(fieldRow('Link to a recent workout', workoutSelect));
+      formHost.appendChild(fieldRow('Notes', notesArea));
+
+      formHost.appendChild(primaryButton('Save Strength Entry', () => {
+        const exerciseName = state.exercise === 'Other' ? (state.customExercise || 'Other') : state.exercise;
+        const localId = uuid();
+        const label = `${player.name} – ${exerciseName} – ${state.date}`;
+        const fields = {
+          [FIELDS.strengthLogs.logEntry]: label,
+          [FIELDS.strengthLogs.player]: [playerId],
+          [FIELDS.strengthLogs.date]: state.date,
+          [FIELDS.strengthLogs.exercise]: exerciseName,
+          [FIELDS.strengthLogs.weight]: state.weight,
+          [FIELDS.strengthLogs.reps]: state.reps,
+          [FIELDS.strengthLogs.sets]: state.sets,
+          [FIELDS.strengthLogs.notes]: state.notes,
+        };
+        if (state.linkedWorkoutId) {
+          fields[FIELDS.strengthLogs.linkedWorkout] = [state.linkedWorkoutId];
+        }
+        Queue.add({
+          localId,
+          tableId: TABLES.strengthLogs.id,
+          fields,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          screenLabel: label,
+        });
+        LastEntry.set('strength', playerId, {
+          exercise: state.exercise, customExercise: state.customExercise,
+          weight: state.weight, reps: state.reps, sets: state.sets, notes: state.notes,
+        });
+        Sync.flush();
+        toast('Strength entry saved — syncing');
+        StrengthScreen.render(container);
+      }));
+    }
+
+    renderForm();
+  },
+};
