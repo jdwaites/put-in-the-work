@@ -191,6 +191,20 @@ auto-prefill only ever fires when `!routineTouched`, so a deliberate blank
 choice sticks across screen visits instead of silently getting the default
 routine re-forced back onto it next time.
 
+### Fetch failures must be visible, not silent (2026-08-30)
+
+`fetchMoves()` and `fetchRoutines()` return `{ ok, error, moves/routines }`,
+not just the data — a failed fetch (most likely cause in practice: the
+user's Airtable Personal Access Token was scoped to specific tables and
+never granted access to Move Definitions / Shot Routine Steps, since those
+tables were created after the token) used to look *identical* to "fetched
+fine, nothing's defined yet": an empty dropdown with zero explanation.
+`renderBody()` now shows a `.fetch-error` banner with the actual error
+(HTTP status included, from `airtableGet`'s thrown message) pointing at
+Settings when either fetch fails. If you add another live-fetched picker
+to this screen later, follow the same `{ ok, error, data }` shape rather
+than swallowing the failure.
+
 ## Testing
 
 No JS runtime is guaranteed to be present in a fresh dev container (no

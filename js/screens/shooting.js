@@ -6,22 +6,32 @@
 // all of them in one action — one Shooting Session + its Shot Spot Results
 // per active player.
 
+// Returns { ok, error, moves } rather than just an array — a fetch that
+// fails (e.g. the Airtable token doesn't have access to this particular
+// table) must be visibly distinguishable from "fetched fine, zero moves
+// defined," or the picker just looks silently broken with no way to
+// diagnose why.
 async function fetchMoves() {
-  if (!Settings.hasToken() || !navigator.onLine) return [];
+  if (!Settings.hasToken()) return { ok: false, error: 'No Airtable token set — add one in Settings.', moves: [] };
+  if (!navigator.onLine) return { ok: false, error: 'Offline.', moves: [] };
   try {
     const data = await airtableGet(TABLES.moveDefinitions.id, {
       'sort[0][field]': FIELDS.moveDefinitions.name,
       'sort[0][direction]': 'asc',
       pageSize: '100',
     });
-    return data.records.map((r) => ({
-      id: r.id,
-      name: r.fields[FIELDS.moveDefinitions.name] || '(untitled)',
-      complexity: r.fields[FIELDS.moveDefinitions.complexity] || '',
-      isLocal: false,
-    }));
+    return {
+      ok: true,
+      error: null,
+      moves: data.records.map((r) => ({
+        id: r.id,
+        name: r.fields[FIELDS.moveDefinitions.name] || '(untitled)',
+        complexity: r.fields[FIELDS.moveDefinitions.complexity] || '',
+        isLocal: false,
+      })),
+    };
   } catch (e) {
-    return [];
+    return { ok: false, error: e.message, moves: [] };
   }
 }
 
@@ -45,9 +55,12 @@ function mergeMoves(fetched) {
 }
 
 // Routines are queried live, never hardcoded — new ones can be added in
-// Airtable at any time without an app change.
+// Airtable at any time without an app change. Same { ok, error, routines }
+// shape as fetchMoves(), for the same reason: a permissions error on this
+// table must be visible, not indistinguishable from "no routines exist."
 async function fetchRoutines() {
-  if (!Settings.hasToken() || !navigator.onLine) return {};
+  if (!Settings.hasToken()) return { ok: false, error: 'No Airtable token set — add one in Settings.', routines: {} };
+  if (!navigator.onLine) return { ok: false, error: 'Offline.', routines: {} };
   try {
     const data = await airtableGet(TABLES.shotRoutineSteps.id, {
       'sort[0][field]': FIELDS.shotRoutineSteps.routineName,
@@ -70,9 +83,9 @@ async function fetchRoutines() {
       });
     });
     Object.values(grouped).forEach((steps) => steps.sort((a, b) => a.order - b.order));
-    return grouped;
+    return { ok: true, error: null, routines: grouped };
   } catch (e) {
-    return {};
+    return { ok: false, error: e.message, routines: {} };
   }
 }
 
@@ -84,6 +97,8 @@ const ShootingScreen = {
   render(container) {
     let moves = mergeMoves([]);
     let routinesByName = {};
+    let movesFetchError = null;
+    let routinesFetchError = null;
     let addingMoveForRowIndex = null; // index into current draft's rows, or null
     let confirmRemovePlayerId = null; // player id mid "Confirm?" tap for tab removal
 
@@ -333,11 +348,17 @@ const ShootingScreen = {
 
       body.appendChild(fieldRow('Date', dateInput));
       body.appendChild(fieldRow('Routine', routineSelect));
+      if (routinesFetchError) {
+        body.appendChild(h('div', { class: 'fetch-error', text: `Couldn't load routines from Airtable: ${routinesFetchError} — check your token's table access in Settings.` }));
+      }
       body.appendChild(fieldRow('Intensity (1–4)', intensityTap));
       body.appendChild(fieldRow('Performance Grade (1–4)', gradeTap));
       body.appendChild(fieldRow('Comments', commentsArea));
 
       body.appendChild(h('h3', { class: 'section-heading', text: 'Spots' }));
+      if (movesFetchError) {
+        body.appendChild(h('div', { class: 'fetch-error', text: `Couldn't load moves from Airtable: ${movesFetchError} — check your token's table access in Settings.` }));
+      }
       if (draft.rows.length === 0) {
         body.appendChild(h('div', { class: 'queue-empty', text: 'No spots yet — add one below or pick a routine above.' }));
       }
@@ -453,12 +474,14 @@ const ShootingScreen = {
 
     renderAll();
 
-    fetchMoves().then((fetched) => {
-      moves = mergeMoves(fetched);
+    fetchMoves().then((result) => {
+      moves = mergeMoves(result.moves);
+      movesFetchError = result.ok ? null : result.error;
       renderBody();
     });
-    fetchRoutines().then((grouped) => {
-      routinesByName = grouped;
+    fetchRoutines().then((result) => {
+      routinesByName = result.routines;
+      routinesFetchError = result.ok ? null : result.error;
       coState.activePlayers.forEach((pid) => applyDefaultRoutineIfPristine(pid));
       persist();
       renderAll();

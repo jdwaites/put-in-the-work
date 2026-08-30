@@ -291,6 +291,15 @@ html, body {
 .recent-row-pending { border-style: dashed; color: var(--text-dim); }
 .recent-row-label { flex: 1; font-size: 14px; }
 .recent-offline, .recent-loading { color: var(--text-dim); font-size: 13px; padding: 8px 0; }
+.fetch-error {
+  background: rgba(229,72,77,0.1);
+  border-left: 3px solid var(--bad);
+  color: var(--bad);
+  font-size: 13px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin: -8px 0 16px;
+}
 .btn-remove.confirming {
   color: var(--bad);
   font-weight: 700;
