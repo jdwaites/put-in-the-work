@@ -205,6 +205,17 @@ Settings when either fetch fails. If you add another live-fetched picker
 to this screen later, follow the same `{ ok, error, data }` shape rather
 than swallowing the failure.
 
+**Two unrelated bugs, both surfacing as a 422 on the same table**: the
+missing `sort[N][direction]` above was one; separately, `fetchRoutines()`
+also sent `pageSize: '200'` — Airtable's REST API hard-caps `pageSize` at
+100 per request and rejects anything higher with a 422, same as a
+malformed sort. Fixing the sort bug alone still left it broken, which
+briefly looked like the fix hadn't worked at all. If a 422 shows up again
+on any Airtable request in this app, check *every* query param against
+the actual API docs, not just the first plausible-looking one — `pageSize`
+must stay ≤ 100 everywhere (see the other `airtableGet` call sites for the
+correct pattern).
+
 ## Testing
 
 No JS runtime is guaranteed to be present in a fresh dev container (no

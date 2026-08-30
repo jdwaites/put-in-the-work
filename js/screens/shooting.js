@@ -67,7 +67,7 @@ async function fetchRoutines() {
       'sort[0][direction]': 'asc',
       'sort[1][field]': FIELDS.shotRoutineSteps.order,
       'sort[1][direction]': 'asc',
-      pageSize: '200',
+      pageSize: '100', // Airtable's hard max per request; well above the ~22 rows this table actually has today
     });
     const grouped = {};
     data.records.forEach((r) => {
