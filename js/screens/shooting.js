@@ -149,8 +149,9 @@ const ShootingScreen = {
         const isActive = coState.activePlayers.includes(p.id);
         const isCurrent = p.id === coState.currentActivePlayerId;
         const btn = h('button', {
-          class: 'player-btn' + (isCurrent ? ' active' : isActive ? ' in-practice' : ''),
+          class: 'player-btn' + (p.avatar ? ' player-btn-photo' : '') + (isCurrent ? ' active' : isActive ? ' in-practice' : ''),
           type: 'button',
+          'aria-label': p.name,
           onclick: () => {
             if (!isActive) {
               coState.activePlayers.push(p.id);
@@ -165,7 +166,7 @@ const ShootingScreen = {
             persist();
             renderAll();
           },
-        }, p.name);
+        }, p.avatar ? h('img', { class: 'player-avatar', src: p.avatar, alt: '' }) : p.name);
         wrap.appendChild(btn);
         if (isActive && coState.activePlayers.length > 1) {
           const removeBtn = h('button', {

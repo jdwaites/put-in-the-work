@@ -145,6 +145,16 @@ oversight. What *is* still enforced:
   static ffmpeg build if no image tool is installed: `ffmpeg -i in.jpg -vf
   "crop='min(iw,ih)':'min(iw,ih)',scale=256:256" -q:v 4 out.jpg`) and are
   precached in `service-worker.js`'s `APP_SHELL` so they load offline too.
+- Two separate player-selector components exist and **both** need this
+  treatment: the shared `playerSwitcher()` in `js/ui.js` (used by Home,
+  Workout, Strength, Benchmark, Game) and the bespoke multi-select tab
+  renderer inside `ShootingScreen.render()` in `js/screens/shooting.js`
+  (needed for its own add/switch/remove co-practice semantics, so it never
+  called `playerSwitcher()`). Both apply the same pattern independently:
+  `p.avatar ? h('img', {class:'player-avatar', src:p.avatar, alt:''}) :
+  p.name`, plus `aria-label: p.name` on the button and a `player-btn-photo`
+  class. If a 3rd player-selector UI is ever added, it needs this same
+  three-part treatment applied explicitly — it does not come for free.
 - Added a **Video URL** field (Airtable type `url`) to both **Workout Logs**
   and **Workout Templates**, for linking a YouTube video the workout
   follows. Purely additive — no existing fields were touched.
