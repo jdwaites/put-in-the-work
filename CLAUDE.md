@@ -170,6 +170,27 @@ shows up with no app change), plus **Routine Used** on Shooting Sessions and
   a label into. That was the original bug report ("spot was entered
   twice"): composing it in code is fine, prompting for it is not.
 
+### Default routine auto-prefill (2026-08-30)
+
+The screen must open already prefilled, not blank until you notice a
+dropdown — `DEFAULT_ROUTINE_NAME` in `js/data.js` (currently "Jump Shot
+Workout (10 makes)") is auto-applied to any draft the user has never
+actually interacted with, the moment routine data loads. Shot Routine
+Steps also carries a **Step Detail** field (e.g. "1 dribble left, crossover
+to right hand, shoot from right wing") that prefills straight into each
+generated row's Move Detail — without it, a prefilled routine still looked
+like bare Spot/Move dropdowns with nothing in the detail field, which read
+as "not actually prefilled."
+
+The subtle part: a draft that's genuinely untouched and a draft where the
+user deliberately picked "Custom (start blank)" are otherwise
+indistinguishable (`routineName: '', rows: []` either way). That's why
+`emptyShootingDraft()` carries a `routineTouched` flag, set the moment the
+user picks *anything* from the routine dropdown (including Custom) — the
+auto-prefill only ever fires when `!routineTouched`, so a deliberate blank
+choice sticks across screen visits instead of silently getting the default
+routine re-forced back onto it next time.
+
 ## Testing
 
 No JS runtime is guaranteed to be present in a fresh dev container (no

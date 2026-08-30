@@ -66,6 +66,7 @@ async function fetchRoutines() {
         spotId: spotArr[0],
         moveId: moveArr[0],
         targetMakes: f[FIELDS.shotRoutineSteps.targetMakes],
+        detail: f[FIELDS.shotRoutineSteps.stepDetail] || '',
       });
     });
     Object.values(grouped).forEach((steps) => steps.sort((a, b) => a.order - b.order));
@@ -139,6 +140,7 @@ const ShootingScreen = {
               if (!coState.drafts[p.id]) {
                 const sharedDate = currentDraft() ? currentDraft().date : todayISO();
                 coState.drafts[p.id] = emptyShootingDraft(sharedDate);
+                applyDefaultRoutineIfPristine(p.id);
               }
             }
             coState.currentActivePlayerId = p.id;
@@ -273,21 +275,41 @@ const ShootingScreen = {
       return wrap;
     }
 
-    function applyRoutine(routineName) {
-      const draft = currentDraft();
+    function populateDraftFromRoutine(draft, routineName) {
       draft.routineName = routineName;
       if (routineName && routinesByName[routineName]) {
         draft.rows = routinesByName[routineName].map((step) => ({
           spotId: step.spotId || SPOTS[0].id,
           moveId: step.moveId || '',
-          moveDetail: '',
+          moveDetail: step.detail || '',
           makes: 0,
           misses: 0,
           targetMakes: step.targetMakes || null,
         }));
+      } else {
+        draft.rows = []; // "Custom (start blank)" — actually start blank
       }
+    }
+
+    function applyRoutine(routineName) {
+      const draft = currentDraft();
+      populateDraftFromRoutine(draft, routineName);
+      draft.routineTouched = true; // a deliberate user pick, including "Custom" — never auto-override this again
       persist();
       renderBody();
+    }
+
+    // The screen should open already prefilled, not blank-until-you-notice-
+    // the-dropdown — so any draft the user has never actually interacted
+    // with yet gets the default routine applied the moment routine data is
+    // available. `routineTouched` (not just "rows is empty") is what makes
+    // this safe: a deliberate "Custom (start blank)" pick also has zero
+    // rows, but must never be silently replaced on the next visit.
+    function applyDefaultRoutineIfPristine(playerId) {
+      const draft = coState.drafts[playerId];
+      if (draft && !draft.routineTouched && draft.rows.length === 0 && routinesByName[DEFAULT_ROUTINE_NAME]) {
+        populateDraftFromRoutine(draft, DEFAULT_ROUTINE_NAME);
+      }
     }
 
     function renderBody() {
@@ -437,7 +459,9 @@ const ShootingScreen = {
     });
     fetchRoutines().then((grouped) => {
       routinesByName = grouped;
-      renderBody();
+      coState.activePlayers.forEach((pid) => applyDefaultRoutineIfPristine(pid));
+      persist();
+      renderAll();
     });
   },
 };

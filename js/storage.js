@@ -128,7 +128,11 @@ const LastEntry = {
 // Persisted to localStorage on every change so backgrounding the browser
 // mid-drill between shots never loses a row.
 function emptyShootingDraft(date) {
-  return { date, routineName: '', intensity: '2', grade: '2', comments: '', rows: [] };
+  // routineTouched distinguishes "never interacted with the routine picker
+  // yet" (safe to auto-prefill the default routine) from "deliberately
+  // picked Custom / blank" (must NOT be silently re-prefilled later) --
+  // both states can otherwise look identical (routineName: '', rows: []).
+  return { date, routineName: '', intensity: '2', grade: '2', comments: '', rows: [], routineTouched: false };
 }
 
 const ShootingDrafts = {

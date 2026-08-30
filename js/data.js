@@ -93,6 +93,7 @@ const FIELDS = {
     spot: 'Spot',
     move: 'Move',
     targetMakes: 'Target Makes',
+    stepDetail: 'Step Detail', // prefills into the Shot Spot Result's Move Detail
   },
   gameLog: {
     opponent: 'Opponent',
@@ -168,6 +169,13 @@ const MOVES = [
   { id: 'recB1W0gysXwyoRxV', name: 'Pull-Up (3-Dribble Approach)', complexity: 'Complex' },
   { id: 'rec70apYTZD3R2qTd', name: 'Between-the-Legs Jumper (4-Dribble)', complexity: 'Complex' },
 ];
+
+// Auto-applied to a freshly-created Shooting draft so the screen opens
+// already prefilled instead of requiring a manual routine pick. Purely a
+// UX default — if this exact routine name is ever renamed/removed in
+// Airtable, the draft just falls back to blank/Custom (see applyDefault-
+// RoutineIfPristine in js/screens/shooting.js), no hardcoded step data.
+const DEFAULT_ROUTINE_NAME = 'Jump Shot Workout (10 makes)';
 
 // Single-select choice options (exact, case-sensitive strings from Airtable).
 const CHOICES = {
