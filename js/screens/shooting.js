@@ -64,7 +64,9 @@ async function fetchRoutines() {
   try {
     const data = await airtableGet(TABLES.shotRoutineSteps.id, {
       'sort[0][field]': FIELDS.shotRoutineSteps.routineName,
+      'sort[0][direction]': 'asc',
       'sort[1][field]': FIELDS.shotRoutineSteps.order,
+      'sort[1][direction]': 'asc',
       pageSize: '200',
     });
     const grouped = {};
