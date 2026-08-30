@@ -299,7 +299,14 @@ const ShootingScreen = {
           spotId: step.spotId || SPOTS[0].id,
           moveId: step.moveId || '',
           moveDetail: step.detail || '',
-          makes: 0,
+          // Prefill Makes to the step's own target (10 for a "10 makes"
+          // routine, 20 for "20 makes", whatever a future routine sets) —
+          // assumes the target was hit by default so a player only has to
+          // adjust Makes down / Misses up for the spots that didn't go
+          // perfectly, rather than tapping "+" up from zero every time.
+          // Driven entirely by each step's own Target Makes, so this works
+          // the same way for any routine, not just the two seeded today.
+          makes: step.targetMakes || 0,
           misses: 0,
           targetMakes: step.targetMakes || null,
         }));

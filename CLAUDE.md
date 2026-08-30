@@ -216,6 +216,19 @@ the actual API docs, not just the first plausible-looking one — `pageSize`
 must stay ≤ 100 everywhere (see the other `airtableGet` call sites for the
 correct pattern).
 
+### Makes prefilled to the routine's own target (2026-08-30)
+
+`populateDraftFromRoutine()` sets a prefilled row's `makes` to that step's
+`targetMakes` (10 for a "10 makes" routine, 20 for "20 makes", 15 for
+whatever the next one is) rather than always starting at 0 — the
+assumption is the target was hit, and the player adjusts Makes down /
+Misses up only for spots that didn't go perfectly, instead of tapping "+"
+up from zero at every spot. This is driven entirely by each step's own
+Target Makes field, so it applies to any routine added later with no app
+change, not just the two seeded today. Manually-added freeform rows (via
+"+ Add spot", no routine involved) still default `makes: 0` — there's no
+target to assume there.
+
 ## Testing
 
 No JS runtime is guaranteed to be present in a fresh dev container (no
