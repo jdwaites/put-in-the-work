@@ -61,6 +61,37 @@ html, body {
   background: var(--accent);
   color: var(--accent-text);
 }
+.player-btn.in-practice {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* Shooting co-practice tabs */
+.shooting-tabs-hint { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+.shooting-tabs { flex-wrap: wrap; margin-bottom: 8px; }
+.tab-remove {
+  flex: 0 0 auto;
+  margin-left: -4px;
+  margin-right: 4px;
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
+/* Per-spot entry row (shooting v2) */
+.spot-entry-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.spot-entry-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.spot-entry-title { font-weight: 700; color: var(--text-dim); font-size: 13px; text-transform: uppercase; letter-spacing: 0.03em; }
 
 /* Header */
 .screen-header {

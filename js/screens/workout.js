@@ -142,8 +142,7 @@ const WorkoutScreen = {
         const chosenTemplate = templates.find((t) => t.id === state.templateId);
         if (chosenTemplate) {
           if (chosenTemplate.isLocal) {
-            queueItem.dependsOnLocalId = chosenTemplate.id;
-            queueItem.linkFieldForParent = FIELDS.workoutLogs.template;
+            queueItem.dependsOn = [{ localId: chosenTemplate.id, linkField: FIELDS.workoutLogs.template }];
           } else {
             fields[FIELDS.workoutLogs.template] = [chosenTemplate.id];
           }

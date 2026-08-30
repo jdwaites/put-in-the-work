@@ -64,10 +64,12 @@ through the local-first queue in `js/sync.js`, unrelated to this cache.
   per-screen "repeat last entry" cache, recent-workout cache.
 - `js/sync.js` — background sync engine. Every save goes into a local queue
   first (local-first, so bad gym wifi never loses an entry) and a
-  `setInterval` + `online` listener flush it to Airtable. Handles the one
-  real dependency in the schema: a Shooting Session must sync before its
-  Shot Spot Results can carry the real session record ID, so child items
-  carry `dependsOnLocalId` and are held back until the parent resolves.
+  `setInterval` + `online` listener flush it to Airtable. A queue item can
+  depend on more than one not-yet-synced parent at once (e.g. a Shot Spot
+  Result created against both a brand-new Session *and* a brand-new Move in
+  the same submit), so dependencies are a list: `item.dependsOn = [{localId,
+  linkField}, ...]`, all of which must resolve before the item can push —
+  see `unresolvedDependencies()`.
 - `js/ui.js` — shared tap-friendly components: player switcher, tap-select
   segmented control, numeric stepper, toast, sync status badge.
 - `js/recent.js` — "last 5 entries + delete" used at the bottom of every
@@ -82,8 +84,8 @@ through the local-first queue in `js/sync.js`, unrelated to this cache.
   removing a local queue item, nothing destructive yet). Deleting a Shooting
   Session cascades to its Shot Spot Results, both for synced sessions
   (`deleteShootingSessionCascade`) and pending ones (`onDeletePending` in
-  `js/screens/shooting.js` also removes queue items whose
-  `dependsOnLocalId` points at the session being deleted).
+  `js/screens/shooting.js` also removes queue items whose `dependsOn` list
+  includes the session being deleted).
 - `js/screens/*.js` — one file per entry screen (home, workout, strength,
   shooting, benchmark, game, settings). Each is a plain object with a
   `render(container)` method; `js/app.js` is a minimal hash-based router.
@@ -97,7 +99,10 @@ through the local-first queue in `js/sync.js`, unrelated to this cache.
   description + optional video link only — no separate management screen,
   no edit, no delete). Creating one while offline queues it the same way as
   any other record and the pending Workout Log correctly depends on it via
-  `dependsOnLocalId`/`linkFieldForParent` until it syncs.
+  `dependsOn` until it syncs.
+- Move Definitions follow the same inline-create, growable-picklist pattern,
+  triggered from the "+ Add new move…" option inside a Shot Spot Result
+  row's Move dropdown on the Shooting screen.
 - Strength Log's "link to a recent workout" only offers workouts that have
   *already synced* (from `RecentWorkouts` cache), not ones still sitting in
   the local queue — avoids a second dependency chain for a field the schema
@@ -120,6 +125,50 @@ through the local-first queue in `js/sync.js`, unrelated to this cache.
 - Added a **Video URL** field (Airtable type `url`) to both **Workout Logs**
   and **Workout Templates**, for linking a YouTube video the workout
   follows. Purely additive — no existing fields were touched.
+
+## Shooting screen v2 — co-practice mode (2026-08-30)
+
+The original single-player Shooting screen was rebuilt after real use
+surfaced problems (each shot creating its own Session instead of batching
+into one; no way to log the move/combo into a shot; no support for logging
+two kids shooting together without losing progress switching between them).
+Schema additions to support this: **Move Definitions** (`tblTtW7Cb9ABn57T0`,
+growable like Workout Templates, tagged Simple/Moderate/Complex), **Shot
+Routine Steps** (`tblLqzth9yqg9YRRV`, ordered steps grouped by "Routine
+Name" — queried live, never hardcoded, so a new routine added in Airtable
+shows up with no app change), plus **Routine Used** on Shooting Sessions and
+**Move** / **Move Detail** on Shot Spot Results (Move Detail reuses the old
+"Notes" field's ID — Airtable renamed it, this app didn't repurpose it).
+
+- **Co-practice state** lives in `js/storage.js`'s `ShootingDrafts`
+  (`pw_shooting_copractice` in localStorage) — a list of "active" player
+  IDs plus one independent draft per active player (date, routine,
+  intensity/grade/comments, spot rows). Switching which player's draft is
+  shown never touches the other players' drafts; this is deliberately
+  *not* the same thing as the app-wide `CurrentPlayer` used by every other
+  screen — `CurrentPlayer` only seeds the *first* active player when the
+  screen is opened with no practice already in progress.
+- **Submit** creates one Shooting Session + its linked Shot Spot Results
+  per active player, all in one action, then calls `ShootingDrafts.clear()`
+  — interpreted as "clear once successfully queued locally," matching every
+  other screen's local-first save, *not* "wait for an Airtable round-trip"
+  (that would contradict offline-first: on bad gym wifi the draft would
+  never clear and a parent would likely resubmit and double-log).
+  Immediately after clearing, the screen re-seeds one fresh empty draft for
+  a single player rather than showing a blank "no one selected" state.
+- A **row's Move can itself be brand-new** (via "+ Add new move…"), which
+  is why `js/sync.js`'s dependency handling had to become a list
+  (`dependsOn: [...]`) instead of a single parent — that Shot Spot Result
+  now depends on both its Session *and* its Move syncing before it can push.
+- Duration is intentionally **never shown or written to** on this screen
+  (the field still exists on Shooting Sessions in Airtable, just always
+  blank from this app) — Duration matters for Workout/Strength logging, not
+  shooting, per the v2 spec.
+- The primary "Log Entry" text field on both Shooting Sessions and Shot
+  Spot Results is always composed by the app from already-selected
+  data (spot/move/makes/etc.) — the user is never shown a text box to type
+  a label into. That was the original bug report ("spot was entered
+  twice"): composing it in code is fine, prompting for it is not.
 
 ## Testing
 

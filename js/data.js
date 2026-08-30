@@ -1,8 +1,10 @@
 // Live Airtable schema + seeded reference data for base "Putting in the Work".
 // Pulled from the Airtable API on 2026-08-28, updated 2026-08-29 (Video URL
-// fields on Workout Logs/Templates, a 4th player). If the base schema
-// changes, re-fetch via the Airtable API and update this file — do not guess
-// field names.
+// fields on Workout Logs/Templates, a 4th player) and 2026-08-30 (Move
+// Definitions + Shot Routine Steps tables, Routine Used / Move / Move Detail
+// fields for the shooting-screen v2 rebuild). If the base schema changes,
+// re-fetch via the Airtable API and update this file — do not guess field
+// names.
 
 const BASE_ID = 'appYZdp23DOulnJwm';
 
@@ -17,6 +19,8 @@ const TABLES = {
   shootingSessions: { id: 'tblGaH3l00WfcVJCO', name: 'Shooting Sessions' },
   shotSpotResults: { id: 'tblUD2jxeVxERmEc6', name: 'Shot Spot Results' },
   gameLog: { id: 'tblFeVbGugAPQkhHS', name: 'Game Log' },
+  moveDefinitions: { id: 'tblTtW7Cb9ABn57T0', name: 'Move Definitions' },
+  shotRoutineSteps: { id: 'tblLqzth9yqg9YRRV', name: 'Shot Routine Steps' },
 };
 
 // Field NAMES as they exist in Airtable right now (case-sensitive; used as
@@ -64,17 +68,31 @@ const FIELDS = {
     comments: 'Comments',
     player: 'Player',
     date: 'Date',
-    duration: 'Duration (min)',
+    duration: 'Duration (min)', // v2: optional, never prompted for on the shooting screen
     intensity: 'Intensity (Effort)',
     grade: 'Performance Grade',
+    routineUsed: 'Routine Used',
   },
   shotSpotResults: {
     logEntry: 'Log Entry',
-    notes: 'Notes',
+    moveDetail: 'Move Detail', // same field as the old "Notes" — Airtable renamed it, not repurposed by us
     session: 'Session',
     spot: 'Spot',
+    move: 'Move',
     makes: 'Makes',
     misses: 'Misses',
+  },
+  moveDefinitions: {
+    name: 'Name',
+    complexity: 'Complexity',
+  },
+  shotRoutineSteps: {
+    step: 'Step', // primary field, auto/not written by the app
+    routineName: 'Routine Name',
+    order: 'Order',
+    spot: 'Spot',
+    move: 'Move',
+    targetMakes: 'Target Makes',
   },
   gameLog: {
     opponent: 'Opponent',
@@ -137,10 +155,25 @@ const TESTS = [
 // runtime from the cache/sync layer if the user adds templates later.
 const WORKOUT_TEMPLATES = [];
 
+// Move Definitions — shared, growable picklist (same pattern as Workout
+// Templates: seeded here for instant offline availability, but the live
+// list is fetched at runtime and a new move can be added inline).
+const MOVES = [
+  { id: 'rec5WXhc4ZoNq4dQl', name: 'Catch & Shoot', complexity: 'Simple' },
+  { id: 'recSCPbivOb58vMc2', name: 'Jab Step Jumper', complexity: 'Moderate' },
+  { id: 'rece02qceeIiKv0is', name: 'Crossover Jumper (1-Move)', complexity: 'Moderate' },
+  { id: 'recwhrb1O8OtwirKf', name: 'Step-Back Jumper', complexity: 'Moderate' },
+  { id: 'recICKFjzy6rfGVrc', name: 'Shot-Fake + Dribble Jumper', complexity: 'Moderate' },
+  { id: 'recgCh2Uz8Ou3XApG', name: 'Drive Pull-Up (2-Dribble)', complexity: 'Moderate' },
+  { id: 'recB1W0gysXwyoRxV', name: 'Pull-Up (3-Dribble Approach)', complexity: 'Complex' },
+  { id: 'rec70apYTZD3R2qTd', name: 'Between-the-Legs Jumper (4-Dribble)', complexity: 'Complex' },
+];
+
 // Single-select choice options (exact, case-sensitive strings from Airtable).
 const CHOICES = {
   category3: ['Basketball', 'Weightlifting', 'Other'], // Workout Logs / Workout Templates Category
   rating4: ['1', '2', '3', '4'], // Intensity (Effort) / Performance Grade
+  complexity3: ['Simple', 'Moderate', 'Complex'], // Move Definitions Complexity
 };
 
 // App-side convenience list only (NOT an Airtable field) — Strength Logs

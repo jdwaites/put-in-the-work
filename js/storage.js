@@ -9,6 +9,7 @@ const LS_KEYS = {
   resolvedIds: 'pw_resolved_ids',
   lastEntry: 'pw_last_entry',
   recentWorkouts: 'pw_recent_workouts',
+  shootingDrafts: 'pw_shooting_copractice',
 };
 
 function readJSON(key, fallback) {
@@ -55,7 +56,7 @@ function uuid() {
 }
 
 // Queue item shape:
-// { localId, tableId, fields, dependsOnLocalId, linkFieldForParent,
+// { localId, tableId, fields, dependsOn: [{localId, linkField}, ...],
 //   status: 'pending'|'error', error, createdAt, screenLabel }
 const Queue = {
   all() {
@@ -117,6 +118,28 @@ const LastEntry = {
     const all = readJSON(LS_KEYS.lastEntry, {});
     all[LastEntry.key(screen, playerId)] = values;
     writeJSON(LS_KEYS.lastEntry, all);
+  },
+};
+
+// Co-practice shooting drafts: multiple players' in-progress Shooting
+// Session entries can exist at once (a co-practice session with two kids
+// shooting at once shouldn't have switching the active player wipe the
+// other one's rows).
+// Persisted to localStorage on every change so backgrounding the browser
+// mid-drill between shots never loses a row.
+function emptyShootingDraft(date) {
+  return { date, routineName: '', intensity: '2', grade: '2', comments: '', rows: [] };
+}
+
+const ShootingDrafts = {
+  get() {
+    return readJSON(LS_KEYS.shootingDrafts, { activePlayers: [], currentActivePlayerId: null, drafts: {} });
+  },
+  save(state) {
+    writeJSON(LS_KEYS.shootingDrafts, state);
+  },
+  clear() {
+    writeJSON(LS_KEYS.shootingDrafts, { activePlayers: [], currentActivePlayerId: null, drafts: {} });
   },
 };
 

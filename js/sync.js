@@ -1,7 +1,15 @@
 // Background sync engine: pushes queued records to Airtable, resolving
 // parent -> child dependencies (e.g. a Shooting Session must land before its
 // Shot Spot Results can reference it) by substituting the real record ID
-// once the parent has synced.
+// once the parent has synced. A queue item can depend on more than one
+// not-yet-synced parent at once — e.g. a Shot Spot Result created against a
+// brand-new (still-queued) Move as well as a brand-new Session — so
+// `item.dependsOn` is a list of { localId, linkField } pairs, all of which
+// must resolve before the item itself can push.
+
+function unresolvedDependencies(item) {
+  return (item.dependsOn || []).filter((dep) => !ResolvedIds.get(dep.localId));
+}
 
 const Sync = {
   running: false,
@@ -41,10 +49,7 @@ const Sync = {
         const items = Queue.all();
         for (const item of items) {
           if (item.status === 'error') continue;
-          if (item.dependsOnLocalId) {
-            const parentReal = ResolvedIds.get(item.dependsOnLocalId);
-            if (!parentReal) continue; // parent not synced yet, try next pass
-          }
+          if (unresolvedDependencies(item).length > 0) continue; // a parent hasn't synced yet, try next pass
           const ok = await Sync.pushOne(item);
           if (ok) progressed = true;
         }
@@ -58,10 +63,10 @@ const Sync = {
   async pushOne(item) {
     try {
       let fields = { ...item.fields };
-      if (item.dependsOnLocalId && item.linkFieldForParent) {
-        const parentReal = ResolvedIds.get(item.dependsOnLocalId);
+      for (const dep of (item.dependsOn || [])) {
+        const parentReal = ResolvedIds.get(dep.localId);
         if (!parentReal) return false;
-        fields[item.linkFieldForParent] = [parentReal];
+        fields[dep.linkField] = [parentReal];
       }
       const { pat } = Settings.get();
       const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${item.tableId}`, {
