@@ -6,7 +6,7 @@
 //
 // Bump CACHE_NAME whenever the app-shell file list changes materially; the
 // activate handler deletes any previously cached version.
-const CACHE_NAME = 'put-in-the-work-v1';
+const CACHE_NAME = 'put-in-the-work-v2';
 
 const APP_SHELL = [
   './',
@@ -28,6 +28,9 @@ const APP_SHELL = [
   './js/screens/settings.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/players/mal.jpg',
+  './icons/players/ike.jpg',
+  './icons/players/khi.jpg',
 ];
 
 self.addEventListener('install', (event) => {

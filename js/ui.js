@@ -25,19 +25,23 @@ function todayISO() {
 }
 
 // Big 3-button player switcher, pinned at the top of every screen.
+// Photo avatars replace the visible name where one is set in js/data.js
+// (PLAYERS[].avatar); the name still becomes the button's accessible name
+// via aria-label, so it's never actually gone, just not shown on screen.
+// A player with no avatar (avatar: null) falls back to a plain text button.
 function playerSwitcher(onChange) {
   const current = CurrentPlayer.get();
   const wrap = h('div', { class: 'player-switcher' });
   PLAYERS.forEach((p) => {
     const btn = h('button', {
-      class: 'player-btn' + (p.id === current ? ' active' : ''),
+      class: 'player-btn' + (p.avatar ? ' player-btn-photo' : '') + (p.id === current ? ' active' : ''),
       type: 'button',
+      'aria-label': p.name,
       onclick: () => {
         CurrentPlayer.set(p.id);
         onChange(p.id);
       },
-      text: p.name,
-    });
+    }, p.avatar ? h('img', { class: 'player-avatar', src: p.avatar, alt: '' }) : p.name);
     wrap.appendChild(btn);
   });
   return wrap;

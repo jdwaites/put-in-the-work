@@ -118,10 +118,10 @@ const FIELDS = {
 // shown-but-irrelevant.
 const ALL_SCREENS = ['workout', 'strength', 'shooting', 'benchmark', 'game'];
 const PLAYERS = [
-  { id: 'reclIhUYdKG4LeOkH', name: 'Mal', ageGroup: 'adult', screens: ALL_SCREENS },
-  { id: 'recZ4Qha8inCHDE8s', name: 'Ike', ageGroup: '12-14', screens: ALL_SCREENS },
-  { id: 'recuJGpFhmRW4V1GK', name: 'Khi', ageGroup: '9-11', screens: ALL_SCREENS },
-  { id: 'recgP5EtYuvNd96io', name: 'Age', ageGroup: 'adult', screens: ['workout', 'strength'] },
+  { id: 'reclIhUYdKG4LeOkH', name: 'Mal', ageGroup: 'adult', screens: ALL_SCREENS, avatar: 'icons/players/mal.jpg' },
+  { id: 'recZ4Qha8inCHDE8s', name: 'Ike', ageGroup: '12-14', screens: ALL_SCREENS, avatar: 'icons/players/ike.jpg' },
+  { id: 'recuJGpFhmRW4V1GK', name: 'Khi', ageGroup: '9-11', screens: ALL_SCREENS, avatar: 'icons/players/khi.jpg' },
+  { id: 'recgP5EtYuvNd96io', name: 'Age', ageGroup: 'adult', screens: ['workout', 'strength'], avatar: null },
 ];
 
 const SPOTS = [

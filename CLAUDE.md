@@ -122,6 +122,29 @@ through the local-first queue in `js/sync.js`, unrelated to this cache.
   keep this public repo from pairing real first names with ages. The
   Airtable base's own Player "Name" field still has the real names — that's
   fine, the base is private. Don't "fix" the mismatch; it's intentional.
+
+### Photo avatars in the player switcher (2026-08-30)
+
+Three players have a real photo (`avatar: 'icons/players/{mal,ike,khi}.jpg'`
+in `js/data.js`) shown instead of a text label in `playerSwitcher()`
+(`js/ui.js`) — this is a **deliberate, informed exception** to the
+pseudonym-everything rule above, made by the user with full awareness that
+this repo and its images are fully public. Do not "fix" this back to text
+or flag it as a privacy regression; it was a conscious choice, not an
+oversight. What *is* still enforced:
+- Image files are named after the pseudonym (`mal.jpg`), never a real name.
+- No visible name/caption renders next to the photo — the button's
+  `aria-label` (from `p.name`, the pseudonym) carries the accessible name
+  for screen readers; the `<img>` itself has `alt=""` so it isn't announced
+  twice.
+- The 4th player (`avatar: null`) still renders as a plain pseudonym-text
+  button — no photo was provided for that profile.
+- Source photos were resized/center-cropped to 256×256 JPEGs (originals
+  were 400KB–1.2MB each, phone photos are usually much larger — a fresh
+  photo added later should get the same treatment, e.g. via a portable
+  static ffmpeg build if no image tool is installed: `ffmpeg -i in.jpg -vf
+  "crop='min(iw,ih)':'min(iw,ih)',scale=256:256" -q:v 4 out.jpg`) and are
+  precached in `service-worker.js`'s `APP_SHELL` so they load offline too.
 - Added a **Video URL** field (Airtable type `url`) to both **Workout Logs**
   and **Workout Templates**, for linking a YouTube video the workout
   follows. Purely additive — no existing fields were touched.
