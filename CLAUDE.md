@@ -268,4 +268,37 @@ No JS runtime is guaranteed to be present in a fresh dev container (no
 `node`/`npm`/`chromium-cli` by default here). If you need to verify a
 change, download a portable Node build and use `jsdom` to load the app and
 simulate clicks/inputs rather than assuming a browser is available — see
-git history for the pattern used the first time this was built.
+git history for the pattern used the first time this was built. `jsdom`
+tests always stub `fetch` and never hit the real Airtable API, so
+automated testing never pollutes the live base — but **the user testing a
+change on their actual phone/browser does**, and that happened enough
+during this project's early days that a real evening practice session got
+mixed in with debugging clutter and needed careful manual reconciliation
+(see the Airtable data cleanup note below). If you're walking the user
+through testing a change live, say so explicitly and consider suggesting
+a throwaway date or a way to distinguish real entries from test ones.
+
+## Airtable data cleanup (2026-08-30)
+
+A real evening practice session (Ike + Khi shooting, ~2026-08-29 evening)
+had gotten fragmented into 11 separate one-shot-per-session records by the
+v1 bug this whole shooting-screen rebuild fixed, and was mixed in with
+real debugging/test data created while building and testing the app live.
+That got reconciled: the 11 real per-shot sessions were consolidated into
+2 clean sessions (one per player, each holding its real Shot Spot
+Results — the original per-shot move description moved into that
+result's Move Detail field, since that field didn't exist yet when this
+data was logged), and every other populated row across Workout Logs,
+Strength Logs, Benchmark Results, Game Log, and the remaining test
+Shooting Sessions/Shot Spot Results was deleted as test data. Player
+records, Spot/Test/Move Definitions, Shot Routine Steps, and Workout
+Templates (including one the user built themselves through the app) were
+untouched — reference/structural data, not results.
+
+Every table's Airtable description now starts with a tag visible right in
+the Airtable UI: **`[📊 RESULTS — logged data to analyze]`** (Workout
+Logs, Strength Logs, Benchmark Results, Shooting Sessions, Shot Spot
+Results, Game Log) or **`[⚙️ STRUCTURAL — powers the app, edit with
+care]`** (Players, Workout Templates, Test Definitions, Spot Definitions,
+Move Definitions, Shot Routine Steps). Keep this tag when editing a
+table's description, and tag any new table the same way.
