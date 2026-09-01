@@ -154,10 +154,10 @@ function syncBadge() {
       badge.textContent = `⚠ ${status.error} failed`;
       badge.className = 'sync-badge sync-error';
     } else if (status.pending > 0) {
-      badge.textContent = status.online ? `⟳ syncing ${status.pending}` : `⏸ ${status.pending} queued (offline)`;
+      badge.textContent = status.online ? `⟳ Saved locally — syncing ${status.pending}` : `⏸ Sync pending — offline (${status.pending})`;
       badge.className = 'sync-badge sync-pending';
     } else {
-      badge.textContent = '✓ synced';
+      badge.textContent = '✓ Synced';
       badge.className = 'sync-badge sync-ok';
     }
   };
