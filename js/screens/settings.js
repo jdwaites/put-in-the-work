@@ -35,8 +35,68 @@ const SettingsScreen = {
           SettingsScreen.render(container);
         }),
         SettingsScreen.queueDetail(),
+        h('div', { class: 'divider' }),
+        SettingsScreen.backupSection(),
       ])
     );
+  },
+
+  backupSection() {
+    const playerId = CurrentPlayer.get();
+    const player = PLAYERS.find((p) => p.id === playerId);
+    const backupStatus = h('div', { class: 'settings-status' });
+
+    const importInput = h('input', { type: 'file', accept: 'application/json', style: 'display:none' });
+    importInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const parsed = JSON.parse(await file.text());
+        const count = countJSONRecords(parsed);
+        if (count === 0) {
+          toast('Nothing to import in that file', 'warn');
+          return;
+        }
+        if (!confirm(`This will add ${count} record${count === 1 ? '' : 's'} to Airtable — continue?`)) return;
+        const added = importResultsJSON(parsed);
+        Sync.flush();
+        toast(`Imported ${added} record${added === 1 ? '' : 's'} — syncing`);
+      } catch (err) {
+        toast('Import failed — make sure the file is a JSON export from this app', 'warn');
+      } finally {
+        importInput.value = '';
+      }
+    });
+
+    return h('div', {}, [
+      h('h3', { text: 'Backup & Portability' }),
+      h('p', { class: 'settings-hint', text:
+        'A manual backup/transfer tool, not a replacement for Airtable as the source of truth. '
+        + 'Import adds records — it does not de-duplicate, and any linked Session/Move/Template must already exist.' }),
+      secondaryButton(`Export JSON — ${player.name}`, async () => {
+        backupStatus.textContent = 'Exporting…';
+        try {
+          const data = await exportResultsJSON(playerId);
+          downloadTextFile(`putting-in-the-work-${player.name}-${todayISO()}.json`, JSON.stringify(data, null, 2), 'application/json');
+          backupStatus.textContent = '';
+        } catch (e) {
+          backupStatus.textContent = `Export failed: ${e.message}`;
+        }
+      }),
+      secondaryButton('Export JSON — all players', async () => {
+        backupStatus.textContent = 'Exporting…';
+        try {
+          const data = await exportResultsJSON(null);
+          downloadTextFile(`putting-in-the-work-all-players-${todayISO()}.json`, JSON.stringify(data, null, 2), 'application/json');
+          backupStatus.textContent = '';
+        } catch (e) {
+          backupStatus.textContent = `Export failed: ${e.message}`;
+        }
+      }),
+      secondaryButton('Import JSON backup…', () => importInput.click()),
+      importInput,
+      backupStatus,
+    ]);
   },
 
   queueDetail() {
