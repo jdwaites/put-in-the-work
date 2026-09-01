@@ -103,6 +103,7 @@ const ShootingScreen = {
     let routinesFetchError = null;
     let addingMoveForRowIndex = null; // index into current draft's rows, or null
     let confirmRemovePlayerId = null; // player id mid "Confirm?" tap for tab removal
+    let showAllMakesConfirm = false; // interrupt-once panel before submitting an all-makes session
 
     const coState = ShootingDrafts.get();
     // Drafts saved before the Attempts stepper existed have no `.attempts` —
@@ -417,11 +418,32 @@ const ShootingScreen = {
 
       body.appendChild(h('div', { class: 'divider' }));
 
-      const activeNames = coState.activePlayers.map((id) => PLAYERS.find((p) => p.id === id).name).join(' + ');
-      body.appendChild(primaryButton(`Submit Session${coState.activePlayers.length > 1 ? 's' : ''} (${activeNames})`, submitAll));
+      if (showAllMakesConfirm) {
+        body.appendChild(renderAllMakesConfirmPanel());
+      } else {
+        const activeNames = coState.activePlayers.map((id) => PLAYERS.find((p) => p.id === id).name).join(' + ');
+        body.appendChild(primaryButton(`Submit Session${coState.activePlayers.length > 1 ? 's' : ''} (${activeNames})`, checkAndSubmit));
+      }
     }
 
-    function submitAll() {
+    // A session where every spot came back 100% makes is more often a sign
+    // Misses never got touched than a genuinely perfect practice — interrupt
+    // once (not a hard block) so a parent can double-check before it saves.
+    function renderAllMakesConfirmPanel() {
+      const wrap = h('div', { class: 'inline-add-form' });
+      wrap.appendChild(h('div', { class: 'field-label', text: 'This whole session was makes — double-check before saving?' }));
+      wrap.appendChild(secondaryButton('Review entries', () => {
+        showAllMakesConfirm = false;
+        renderBody();
+      }));
+      wrap.appendChild(primaryButton('Save anyway', () => {
+        showAllMakesConfirm = false;
+        doSubmit();
+      }));
+      return wrap;
+    }
+
+    function checkAndSubmit() {
       const missingRows = coState.activePlayers.filter((id) => (coState.drafts[id].rows || []).length === 0);
       if (missingRows.length > 0) {
         const names = missingRows.map((id) => PLAYERS.find((p) => p.id === id).name).join(', ');
@@ -429,6 +451,22 @@ const ShootingScreen = {
         return;
       }
 
+      const anyAllMakes = coState.activePlayers.some((id) => {
+        const rows = coState.drafts[id].rows;
+        const totalMakes = rows.reduce((sum, r) => sum + r.makes, 0);
+        const totalMisses = rows.reduce((sum, r) => sum + r.misses, 0);
+        return totalMakes > 0 && totalMisses === 0;
+      });
+      if (anyAllMakes) {
+        showAllMakesConfirm = true;
+        renderBody();
+        return;
+      }
+
+      doSubmit();
+    }
+
+    function doSubmit() {
       let totalSpots = 0;
       coState.activePlayers.forEach((playerId) => {
         const player = PLAYERS.find((p) => p.id === playerId);
