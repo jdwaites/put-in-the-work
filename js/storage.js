@@ -8,6 +8,7 @@ const LS_KEYS = {
   queue: 'pw_queue',
   resolvedIds: 'pw_resolved_ids',
   lastEntry: 'pw_last_entry',
+  lastSaved: 'pw_last_saved',
   recentWorkouts: 'pw_recent_workouts',
   shootingDrafts: 'pw_shooting_copractice',
 };
@@ -118,6 +119,31 @@ const LastEntry = {
     const all = readJSON(LS_KEYS.lastEntry, {});
     all[LastEntry.key(screen, playerId)] = values;
     writeJSON(LS_KEYS.lastEntry, all);
+  },
+};
+
+// Unlike LastEntry (a few prefill fields for the *next new* entry),
+// LastSaved stores enough to re-locate and update the *exact* record just
+// saved: { localId, tableId, fields, screenLabel, savedAt }. localId stays
+// valid indefinitely as a lookup key whether the record has synced yet or
+// not — see ResolvedIds (never expires) and Queue (removed once synced).
+const LastSaved = {
+  key(screen, playerId) {
+    return `${screen}:${playerId}`;
+  },
+  get(screen, playerId) {
+    const all = readJSON(LS_KEYS.lastSaved, {});
+    return all[LastSaved.key(screen, playerId)] || null;
+  },
+  set(screen, playerId, entry) {
+    const all = readJSON(LS_KEYS.lastSaved, {});
+    all[LastSaved.key(screen, playerId)] = entry;
+    writeJSON(LS_KEYS.lastSaved, all);
+  },
+  clear(screen, playerId) {
+    const all = readJSON(LS_KEYS.lastSaved, {});
+    delete all[LastSaved.key(screen, playerId)];
+    writeJSON(LS_KEYS.lastSaved, all);
   },
 };
 

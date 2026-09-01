@@ -34,6 +34,37 @@ async function airtableDeleteMany(tableId, recordIds) {
   return true;
 }
 
+async function airtableUpdateOne(tableId, recordId, fields) {
+  const { pat } = Settings.get();
+  const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${tableId}/${recordId}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${pat}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ fields, typecast: true }),
+  });
+  return res.ok;
+}
+
+// Updates the exact record a LastSaved entry points at, whichever state
+// it's in: already synced (PATCH the real Airtable record), still sitting
+// in the local queue (mutate the pending create in place — no network call,
+// so it goes out with the edited fields the first time it syncs), or
+// neither (a narrow mid-flight race between those two states) — the caller
+// should toast a "couldn't find that entry" message on `false`.
+async function updateExistingRecord(lastSaved, newFields) {
+  const resolvedId = ResolvedIds.get(lastSaved.localId);
+  if (resolvedId) {
+    return airtableUpdateOne(lastSaved.tableId, resolvedId, newFields);
+  }
+  if (Queue.all().some((i) => i.localId === lastSaved.localId)) {
+    Queue.update(lastSaved.localId, { fields: newFields });
+    return true;
+  }
+  return false;
+}
+
 // Fetches a recent window and filters client-side by linked record ID,
 // rather than filtering server-side by the Player's Airtable display name —
 // that would require this (public) file's player labels to match whatever
