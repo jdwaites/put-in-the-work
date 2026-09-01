@@ -398,6 +398,15 @@ const ShootingScreen = {
       if (routinesFetchError) {
         body.appendChild(h('div', { class: 'fetch-error', text: `Couldn't load routines from Airtable: ${routinesFetchError} — check your token's table access in Settings.` }));
       }
+      const lastShootingEntry = LastEntry.get('shooting', player.id);
+      if (lastShootingEntry && (lastShootingEntry.rows || []).length > 0) {
+        body.appendChild(secondaryButton('↺ Repeat last session', () => {
+          draft.rows = lastShootingEntry.rows.map((row) => ({ ...row }));
+          draft.routineTouched = true; // clone is a deliberate pick, don't let the default-routine auto-prefill fight it
+          persist();
+          renderBody();
+        }));
+      }
       body.appendChild(fieldRow('Intensity (1–4)', intensityTap));
       body.appendChild(fieldRow('Performance Grade (1–4)', gradeTap));
       body.appendChild(fieldRow('Comments', commentsArea));
@@ -647,6 +656,8 @@ const ShootingScreen = {
             });
           }
         });
+
+        LastEntry.set('shooting', playerId, { routineName: draft.routineName, rows: draft.rows });
       });
 
       ShootingDrafts.clear();
