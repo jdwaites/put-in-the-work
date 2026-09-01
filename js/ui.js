@@ -71,21 +71,55 @@ function tapSelect(options, selectedValue, onChange, extraClass = '') {
   return wrap;
 }
 
-// Large-tap-target numeric stepper. onChange(value) fires on every change.
-function stepper(initial, { min = 0, max = 999, step = 1, label = '' } = {}, onChange) {
+// Large-tap-target numeric stepper. onChange(value) fires on every change —
+// from the -/+ buttons, from typing a number directly into the field, or
+// from a quickAdds shortcut button. quickAdds (e.g. [5, 10]) renders a row
+// of "+5"/"+10"-style buttons below the main row for quickly bumping a
+// count by a fixed chunk, like hitting a preset button on a microwave.
+function stepper(initial, { min = 0, max = 999, step = 1, label = '', quickAdds = [] } = {}, onChange) {
   let value = initial;
-  const display = h('div', { class: 'stepper-value', text: String(value) });
   const clamp = (v) => Math.min(max, Math.max(min, v));
+
+  const input = h('input', {
+    class: 'stepper-value stepper-input',
+    type: 'number',
+    inputmode: 'numeric',
+    min: String(min),
+    max: String(max),
+    value: String(value),
+    'aria-label': label,
+  });
+
   const set = (v) => {
     value = clamp(v);
-    display.textContent = String(value);
+    input.value = String(value);
     onChange(value);
   };
-  const wrap = h('div', { class: 'stepper' }, [
+
+  // Typing isn't clamped keystroke-by-keystroke (that would fight a user
+  // mid-type on a two-digit number) — it commits, and clamps, on blur/Enter.
+  const commitTyped = () => {
+    const parsed = parseInt(input.value, 10);
+    set(isNaN(parsed) ? value : parsed);
+  };
+  input.addEventListener('blur', commitTyped);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') input.blur();
+  });
+
+  const mainRow = h('div', { class: 'stepper' }, [
     h('button', { class: 'stepper-btn', type: 'button', 'aria-label': `Decrease ${label}`, onclick: () => set(value - step) }, '−'),
-    display,
+    input,
     h('button', { class: 'stepper-btn', type: 'button', 'aria-label': `Increase ${label}`, onclick: () => set(value + step) }, '+'),
   ]);
+
+  let wrap = mainRow;
+  if (quickAdds.length > 0) {
+    const quickAddRow = h('div', { class: 'stepper-quickadds' }, quickAdds.map((n) =>
+      h('button', { class: 'stepper-quickadd', type: 'button', 'aria-label': `Add ${n} to ${label}`, onclick: () => set(value + n) }, `+${n}`)
+    ));
+    wrap = h('div', { class: 'stepper-group' }, [mainRow, quickAddRow]);
+  }
   wrap.getValue = () => value;
   wrap.setValue = set;
   return wrap;

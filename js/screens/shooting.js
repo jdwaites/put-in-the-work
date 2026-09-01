@@ -288,7 +288,7 @@ const ShootingScreen = {
       // capping at an arbitrary ceiling, since an attempt that isn't a make
       // must show up as a miss (the real bug this fixes: misses silently
       // left at 0 made a session look like 100% makes).
-      const makesStep = stepper(row.makes, { min: 0, max: 99, label: 'makes' }, (v) => {
+      const makesStep = stepper(row.makes, { min: 0, max: 99, label: 'makes', quickAdds: [5, 10] }, (v) => {
         const clamped = Math.min(v, row.attempts);
         if (clamped !== v) { makesStep.setValue(clamped); return; }
         row.makes = clamped;
@@ -296,7 +296,7 @@ const ShootingScreen = {
         missesDisplay.textContent = String(row.misses);
         persist();
       });
-      const attemptsStep = stepper(row.attempts, { min: 0, max: 99, label: 'attempts' }, (v) => {
+      const attemptsStep = stepper(row.attempts, { min: 0, max: 99, label: 'attempts', quickAdds: [5, 10] }, (v) => {
         row.attempts = v;
         if (row.makes > v) {
           makesStep.setValue(v); // clamps makes down and recomputes misses
@@ -544,14 +544,14 @@ const ShootingScreen = {
 
       const missesDisplay = h('div', { class: 'stepper-value', text: String(editLastShot.misses) });
       const missesWrap = h('div', { class: 'stepper stepper-readonly' }, [missesDisplay]);
-      const makesStep = stepper(editLastShot.makes, { min: 0, max: 99, label: 'makes' }, (v) => {
+      const makesStep = stepper(editLastShot.makes, { min: 0, max: 99, label: 'makes', quickAdds: [5, 10] }, (v) => {
         const clamped = Math.min(v, editLastShot.attempts);
         if (clamped !== v) { makesStep.setValue(clamped); return; }
         editLastShot.makes = clamped;
         editLastShot.misses = Math.max(0, editLastShot.attempts - editLastShot.makes);
         missesDisplay.textContent = String(editLastShot.misses);
       });
-      const attemptsStep = stepper(editLastShot.attempts, { min: 0, max: 99, label: 'attempts' }, (v) => {
+      const attemptsStep = stepper(editLastShot.attempts, { min: 0, max: 99, label: 'attempts', quickAdds: [5, 10] }, (v) => {
         editLastShot.attempts = v;
         if (editLastShot.makes > v) {
           makesStep.setValue(v);
