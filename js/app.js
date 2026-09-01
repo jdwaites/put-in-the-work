@@ -5,6 +5,7 @@ const ROUTES = {
   '#shooting': ShootingScreen,
   '#benchmark': BenchmarkScreen,
   '#game': GameScreen,
+  '#reports': ReportsScreen,
   '#settings': SettingsScreen,
 };
 
