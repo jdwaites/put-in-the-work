@@ -73,6 +73,185 @@ function importResultsJSON(parsed) {
   return items.length;
 }
 
+function toCSV(rows, columns) {
+  const escapeCell = (v) => {
+    const s = v === null || v === undefined ? '' : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const header = columns.map((c) => escapeCell(c.label)).join(',');
+  const lines = rows.map((row) => columns.map((c) => escapeCell(row[c.key])).join(','));
+  return [header, ...lines].join('\r\n');
+}
+
+// SPOTS/TESTS are stable seeded reference data (safe to resolve from the
+// hardcoded consts), but Move Definitions and Workout Templates are
+// growable picklists — fetched live here so a move/template added after
+// this file's last data.js snapshot still resolves to a real name in CSV
+// rather than falling back to a raw record id.
+async function buildNameLookups() {
+  const playerNameById = new Map(PLAYERS.map((p) => [p.id, p.name]));
+  const spotNameById = new Map(SPOTS.map((s) => [s.id, s.name]));
+  const testNameById = new Map(TESTS.map((t) => [t.id, t.name]));
+
+  const moveNameById = new Map(MOVES.map((m) => [m.id, m.name]));
+  try {
+    (await fetchAllRecords(TABLES.moveDefinitions.id, {})).forEach((r) => {
+      moveNameById.set(r.id, r.fields[FIELDS.moveDefinitions.name] || '(untitled move)');
+    });
+  } catch (e) { /* best-effort — unresolved moves just fall back to blank */ }
+
+  const templateNameById = new Map();
+  try {
+    (await fetchAllRecords(TABLES.workoutTemplates.id, {})).forEach((r) => {
+      templateNameById.set(r.id, r.fields[FIELDS.workoutTemplates.name] || '(untitled template)');
+    });
+  } catch (e) { /* best-effort */ }
+
+  return { playerNameById, spotNameById, testNameById, moveNameById, templateNameById };
+}
+
+// Shot Spot Results have no player/date field — sessionInfoById (built from
+// the already-fetched Shooting Sessions) joins one in, same as everywhere
+// else in this app that needs player/date on a shot result.
+function csvRowsForTable(key, records, lookups, sessionInfoById) {
+  const first = (arr) => (arr || [])[0];
+  switch (key) {
+    case 'workoutLogs':
+      return {
+        columns: [
+          { key: 'date', label: 'Date' }, { key: 'player', label: 'Player' },
+          { key: 'category', label: 'Category' }, { key: 'duration', label: 'Duration (min)' },
+          { key: 'intensity', label: 'Intensity' }, { key: 'grade', label: 'Performance Grade' },
+          { key: 'template', label: 'Template' }, { key: 'comments', label: 'Comments' },
+        ],
+        rows: records.map((r) => ({
+          date: r.fields[FIELDS.workoutLogs.date] || '',
+          player: lookups.playerNameById.get(first(r.fields[FIELDS.workoutLogs.player])) || '',
+          category: r.fields[FIELDS.workoutLogs.category] || '',
+          duration: r.fields[FIELDS.workoutLogs.duration] ?? '',
+          intensity: r.fields[FIELDS.workoutLogs.intensity] || '',
+          grade: r.fields[FIELDS.workoutLogs.grade] || '',
+          template: lookups.templateNameById.get(first(r.fields[FIELDS.workoutLogs.template])) || '',
+          comments: r.fields[FIELDS.workoutLogs.comments] || '',
+        })),
+      };
+    case 'strengthLogs':
+      return {
+        columns: [
+          { key: 'date', label: 'Date' }, { key: 'player', label: 'Player' },
+          { key: 'exercise', label: 'Exercise' }, { key: 'weight', label: 'Weight' },
+          { key: 'reps', label: 'Reps' }, { key: 'sets', label: 'Sets' }, { key: 'notes', label: 'Notes' },
+        ],
+        rows: records.map((r) => ({
+          date: r.fields[FIELDS.strengthLogs.date] || '',
+          player: lookups.playerNameById.get(first(r.fields[FIELDS.strengthLogs.player])) || '',
+          exercise: r.fields[FIELDS.strengthLogs.exercise] || '',
+          weight: r.fields[FIELDS.strengthLogs.weight] ?? '',
+          reps: r.fields[FIELDS.strengthLogs.reps] ?? '',
+          sets: r.fields[FIELDS.strengthLogs.sets] ?? '',
+          notes: r.fields[FIELDS.strengthLogs.notes] || '',
+        })),
+      };
+    case 'benchmarkResults':
+      return {
+        columns: [
+          { key: 'date', label: 'Date' }, { key: 'player', label: 'Player' },
+          { key: 'test', label: 'Test' }, { key: 'result', label: 'Result' }, { key: 'notes', label: 'Notes' },
+        ],
+        rows: records.map((r) => ({
+          date: r.fields[FIELDS.benchmarkResults.date] || '',
+          player: lookups.playerNameById.get(first(r.fields[FIELDS.benchmarkResults.player])) || '',
+          test: lookups.testNameById.get(first(r.fields[FIELDS.benchmarkResults.test])) || '',
+          result: r.fields[FIELDS.benchmarkResults.resultValue] ?? '',
+          notes: r.fields[FIELDS.benchmarkResults.notes] || '',
+        })),
+      };
+    case 'shootingSessions':
+      return {
+        columns: [
+          { key: 'date', label: 'Date' }, { key: 'player', label: 'Player' },
+          { key: 'routine', label: 'Routine Used' }, { key: 'intensity', label: 'Intensity' },
+          { key: 'grade', label: 'Performance Grade' }, { key: 'comments', label: 'Comments' },
+        ],
+        rows: records.map((r) => ({
+          date: r.fields[FIELDS.shootingSessions.date] || '',
+          player: lookups.playerNameById.get(first(r.fields[FIELDS.shootingSessions.player])) || '',
+          routine: r.fields[FIELDS.shootingSessions.routineUsed] || '',
+          intensity: r.fields[FIELDS.shootingSessions.intensity] || '',
+          grade: r.fields[FIELDS.shootingSessions.grade] || '',
+          comments: r.fields[FIELDS.shootingSessions.comments] || '',
+        })),
+      };
+    case 'shotSpotResults':
+      return {
+        columns: [
+          { key: 'date', label: 'Date' }, { key: 'player', label: 'Player' },
+          { key: 'spot', label: 'Spot' }, { key: 'move', label: 'Move' },
+          { key: 'moveDetail', label: 'Move Detail' }, { key: 'makes', label: 'Makes' }, { key: 'misses', label: 'Misses' },
+        ],
+        rows: records.map((r) => {
+          const info = sessionInfoById.get(first(r.fields[FIELDS.shotSpotResults.session])) || { player: '', date: '' };
+          return {
+            date: info.date,
+            player: info.player,
+            spot: lookups.spotNameById.get(first(r.fields[FIELDS.shotSpotResults.spot])) || '',
+            move: lookups.moveNameById.get(first(r.fields[FIELDS.shotSpotResults.move])) || '',
+            moveDetail: r.fields[FIELDS.shotSpotResults.moveDetail] || '',
+            makes: r.fields[FIELDS.shotSpotResults.makes] ?? '',
+            misses: r.fields[FIELDS.shotSpotResults.misses] ?? '',
+          };
+        }),
+      };
+    case 'gameLog':
+      return {
+        columns: [
+          { key: 'date', label: 'Date' }, { key: 'player', label: 'Player' }, { key: 'opponent', label: 'Opponent' },
+          { key: 'minutes', label: 'Minutes' }, { key: 'points', label: 'Points' }, { key: 'rebounds', label: 'Rebounds' },
+          { key: 'assists', label: 'Assists' }, { key: 'whatWentWell', label: 'What Went Well' }, { key: 'whatToWorkOn', label: 'What To Work On' },
+        ],
+        rows: records.map((r) => ({
+          date: r.fields[FIELDS.gameLog.date] || '',
+          player: lookups.playerNameById.get(first(r.fields[FIELDS.gameLog.player])) || '',
+          opponent: r.fields[FIELDS.gameLog.opponent] || '',
+          minutes: r.fields[FIELDS.gameLog.minutesPlayed] ?? '',
+          points: r.fields[FIELDS.gameLog.points] ?? '',
+          rebounds: r.fields[FIELDS.gameLog.rebounds] ?? '',
+          assists: r.fields[FIELDS.gameLog.assists] ?? '',
+          whatWentWell: r.fields[FIELDS.gameLog.whatWentWell] || '',
+          whatToWorkOn: r.fields[FIELDS.gameLog.whatToWorkOn] || '',
+        })),
+      };
+    default:
+      return { columns: [], rows: [] };
+  }
+}
+
+// One CSV file per table (no zip library available, no build step to add
+// one) — triggered as sequential downloads from a single button. Reuses
+// exportResultsJSON for the underlying data pull, just serialized
+// differently, per the spec.
+async function exportResultsCSV(playerId) {
+  const lookups = await buildNameLookups();
+  const data = await exportResultsJSON(playerId);
+
+  const sessionInfoById = new Map();
+  (data.shootingSessions || []).forEach((r) => {
+    sessionInfoById.set(r.id, {
+      player: lookups.playerNameById.get((r.fields[FIELDS.shootingSessions.player] || [])[0]) || '',
+      date: r.fields[FIELDS.shootingSessions.date] || '',
+    });
+  });
+
+  RESULTS_TABLE_KEYS.forEach((key) => {
+    const records = data[key] || [];
+    if (records.length === 0) return;
+    const table = TABLES[key];
+    const { columns, rows } = csvRowsForTable(key, records, lookups, sessionInfoById);
+    const filename = `putting-in-the-work-${table.name.replace(/\s+/g, '-')}-${todayISO()}.csv`;
+    downloadTextFile(filename, toCSV(rows, columns), 'text/csv');
+  });
+}
+
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

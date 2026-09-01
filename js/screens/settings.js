@@ -95,6 +95,25 @@ const SettingsScreen = {
       }),
       secondaryButton('Import JSON backup…', () => importInput.click()),
       importInput,
+      h('div', { class: 'divider' }),
+      secondaryButton(`Export CSV — ${player.name}`, async () => {
+        backupStatus.textContent = 'Exporting…';
+        try {
+          await exportResultsCSV(playerId);
+          backupStatus.textContent = '';
+        } catch (e) {
+          backupStatus.textContent = `Export failed: ${e.message}`;
+        }
+      }),
+      secondaryButton('Export CSV — all players', async () => {
+        backupStatus.textContent = 'Exporting…';
+        try {
+          await exportResultsCSV(null);
+          backupStatus.textContent = '';
+        } catch (e) {
+          backupStatus.textContent = `Export failed: ${e.message}`;
+        }
+      }),
       backupStatus,
     ]);
   },
