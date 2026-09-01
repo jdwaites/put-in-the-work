@@ -8,6 +8,8 @@ const StrengthScreen = {
     const player = PLAYERS.find((p) => p.id === playerId);
     const isYoungest = player.ageGroup === '9-11'; // bodyweight/high-rep defaults, no max-weight prompts
     const last = LastEntry.get('strength', playerId);
+    let lastSaved = LastSaved.get('strength', playerId);
+    let editingLocalId = null;
 
     const state = {
       date: todayISO(),
@@ -24,6 +26,21 @@ const StrengthScreen = {
     if (last) {
       body.appendChild(secondaryButton('↺ Repeat last entry', () => {
         Object.assign(state, last, { notes: last.notes || '' });
+        renderForm();
+      }));
+    }
+    if (lastSaved) {
+      body.appendChild(secondaryButton('✎ Edit last entry', () => {
+        const f = lastSaved.fields;
+        state.date = f[FIELDS.strengthLogs.date] || state.date;
+        state.exercise = f[FIELDS.strengthLogs.exercise] || state.exercise;
+        state.customExercise = COMMON_EXERCISES.includes(state.exercise) ? '' : state.exercise;
+        if (state.customExercise) state.exercise = 'Other';
+        state.weight = f[FIELDS.strengthLogs.weight] ?? state.weight;
+        state.reps = f[FIELDS.strengthLogs.reps] ?? state.reps;
+        state.sets = f[FIELDS.strengthLogs.sets] ?? state.sets;
+        state.notes = f[FIELDS.strengthLogs.notes] || '';
+        editingLocalId = lastSaved.localId;
         renderForm();
       }));
     }
@@ -80,9 +97,8 @@ const StrengthScreen = {
       formHost.appendChild(fieldRow('Link to a recent workout', workoutSelect));
       formHost.appendChild(fieldRow('Notes', notesArea));
 
-      formHost.appendChild(primaryButton('Save Strength Entry', () => {
+      formHost.appendChild(primaryButton(editingLocalId ? 'Update Entry' : 'Save Strength Entry', async () => {
         const exerciseName = state.exercise === 'Other' ? (state.customExercise || 'Other') : state.exercise;
-        const localId = uuid();
         const label = `${player.name} – ${exerciseName} – ${state.date}`;
         const fields = {
           [FIELDS.strengthLogs.logEntry]: label,
@@ -97,20 +113,33 @@ const StrengthScreen = {
         if (state.linkedWorkoutId) {
           fields[FIELDS.strengthLogs.linkedWorkout] = [state.linkedWorkoutId];
         }
-        Queue.add({
-          localId,
-          tableId: TABLES.strengthLogs.id,
-          fields,
-          status: 'pending',
-          createdAt: new Date().toISOString(),
-          screenLabel: label,
-        });
+
+        if (editingLocalId) {
+          const ok = await updateExistingRecord({ localId: editingLocalId, tableId: TABLES.strengthLogs.id }, fields);
+          if (!ok) {
+            toast("Couldn't find that entry to update — try refreshing", 'warn');
+            return;
+          }
+          LastSaved.set('strength', playerId, { localId: editingLocalId, tableId: TABLES.strengthLogs.id, fields, screenLabel: label, savedAt: new Date().toISOString() });
+          toast('Entry updated');
+        } else {
+          const localId = uuid();
+          Queue.add({
+            localId,
+            tableId: TABLES.strengthLogs.id,
+            fields,
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+            screenLabel: label,
+          });
+          LastSaved.set('strength', playerId, { localId, tableId: TABLES.strengthLogs.id, fields, screenLabel: label, savedAt: new Date().toISOString() });
+          Sync.flush();
+          toast('Strength entry saved — syncing');
+        }
         LastEntry.set('strength', playerId, {
           exercise: state.exercise, customExercise: state.customExercise,
           weight: state.weight, reps: state.reps, sets: state.sets, notes: state.notes,
         });
-        Sync.flush();
-        toast('Strength entry saved — syncing');
         StrengthScreen.render(container);
       }));
     }
