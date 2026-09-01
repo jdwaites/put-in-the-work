@@ -33,7 +33,9 @@ const ReportsScreen = {
     loadReportData(player, screens)
       .then((data) => {
         body.innerHTML = '';
+        renderQuickSummary(body, player, screens, data);
         renderPersonalRecords(body, player, screens, data);
+        renderShotChart(body, player, screens, data);
         renderTrendGraphs(body, player, screens, data);
         renderSuggestedFocus(body, player, screens, data);
         renderSessionSummaryCard(body, player, screens, data);
@@ -46,7 +48,7 @@ const ReportsScreen = {
 };
 
 async function loadReportData(player, screens) {
-  const data = { shotResults: [], benchmarkRecords: [] };
+  const data = { shotResults: [], benchmarkRecords: [], workoutCount: 0, strengthCount: 0, gameCount: 0 };
   if (screens.includes('shooting')) {
     data.shotResults = await fetchPlayerShotSpotResults(player.id);
   }
@@ -54,7 +56,47 @@ async function loadReportData(player, screens) {
     const all = await fetchAllRecords(TABLES.benchmarkResults.id, {});
     data.benchmarkRecords = all.filter((r) => (r.fields[FIELDS.benchmarkResults.player] || []).includes(player.id));
   }
+  // Counts only (not full records) — Quick Summary needs these for every
+  // player, including walks-only profiles with no Shooting/Benchmark data,
+  // so Reports stays useful for them too, same reasoning as the Reports
+  // tile itself not being gated by effectiveScreens.
+  if (screens.includes('workout')) {
+    const all = await fetchAllRecords(TABLES.workoutLogs.id, {});
+    data.workoutCount = all.filter((r) => (r.fields[FIELDS.workoutLogs.player] || []).includes(player.id)).length;
+  }
+  if (screens.includes('strength')) {
+    const all = await fetchAllRecords(TABLES.strengthLogs.id, {});
+    data.strengthCount = all.filter((r) => (r.fields[FIELDS.strengthLogs.player] || []).includes(player.id)).length;
+  }
+  if (screens.includes('game')) {
+    const all = await fetchAllRecords(TABLES.gameLog.id, {});
+    data.gameCount = all.filter((r) => (r.fields[FIELDS.gameLog.player] || []).includes(player.id)).length;
+  }
   return data;
+}
+
+function renderQuickSummary(body, player, screens, data) {
+  body.appendChild(h('h3', { class: 'section-heading', text: 'Quick Summary' }));
+  const lines = [];
+
+  if (screens.includes('shooting')) {
+    const totalMakes = data.shotResults.reduce((sum, r) => sum + r.makes, 0);
+    const totalMisses = data.shotResults.reduce((sum, r) => sum + r.misses, 0);
+    const totalAttempts = totalMakes + totalMisses;
+    const sessionCount = new Set(data.shotResults.map((r) => r.sessionId).filter(Boolean)).size;
+    lines.push(totalAttempts > 0
+      ? `🎯 Shooting: ${Math.round((totalMakes / totalAttempts) * 100)}% (${totalMakes}/${totalAttempts}) across ${sessionCount} session${sessionCount === 1 ? '' : 's'}`
+      : '🎯 Shooting: no shots logged yet');
+  }
+  if (screens.includes('benchmark')) {
+    const testsCovered = new Set(data.benchmarkRecords.map((r) => (r.fields[FIELDS.benchmarkResults.test] || [])[0]).filter(Boolean)).size;
+    lines.push(`📏 Benchmark: ${data.benchmarkRecords.length} result${data.benchmarkRecords.length === 1 ? '' : 's'} across ${testsCovered} test${testsCovered === 1 ? '' : 's'}`);
+  }
+  if (screens.includes('workout')) lines.push(`🏀 Workout: ${data.workoutCount} logged`);
+  if (screens.includes('strength')) lines.push(`💪 Strength: ${data.strengthCount} logged`);
+  if (screens.includes('game')) lines.push(`🏆 Game: ${data.gameCount} logged`);
+
+  body.appendChild(h('div', { class: 'quick-summary-card' }, lines.map((line) => h('div', { text: line }))));
 }
 
 // A session's worth of attempts at a spot is the natural unit for both PRs
@@ -89,6 +131,45 @@ function computeShotPRs(shotResults) {
   });
 
   return SPOTS.map((spot) => ({ spot, pr: bestBySpot.get(spot.id) })).filter((x) => x.pr);
+}
+
+// All-time accuracy per spot (every attempt ever logged there, not grouped
+// by session like PRs/trends — a shot chart is a "how am I shooting from
+// here overall" heat map, not a best-single-session view).
+function computeShotChartStats(shotResults) {
+  const bySpot = new Map();
+  shotResults.forEach((r) => {
+    if (!r.spotId) return;
+    const g = bySpot.get(r.spotId) || { spotId: r.spotId, makes: 0, misses: 0 };
+    g.makes += r.makes;
+    g.misses += r.misses;
+    bySpot.set(r.spotId, g);
+  });
+  return SPOTS.map((spot) => {
+    const g = bySpot.get(spot.id);
+    const attempts = g ? g.makes + g.misses : 0;
+    const enoughData = attempts >= MIN_ATTEMPTS_FOR_PR;
+    return { spot, attempts, pct: enoughData ? (g.makes / attempts) * 100 : null };
+  });
+}
+
+function renderShotChart(body, player, screens, data) {
+  if (!screens.includes('shooting')) return;
+  body.appendChild(h('h3', { class: 'section-heading', text: 'Shot Chart' }));
+
+  const stats = computeShotChartStats(data.shotResults);
+  if (!stats.some((s) => s.attempts > 0)) {
+    body.appendChild(h('div', { class: 'queue-empty', text: 'No shots logged yet — the chart fills in after a session or two.' }));
+    return;
+  }
+
+  body.appendChild(shotChartSVG(stats));
+  body.appendChild(h('div', { class: 'shot-chart-legend' }, [
+    h('span', { class: 'legend-dot', style: 'background:var(--good)' }), h('span', { text: '60%+' }),
+    h('span', { class: 'legend-dot', style: 'background:var(--warn)' }), h('span', { text: '40–59%' }),
+    h('span', { class: 'legend-dot', style: 'background:var(--bad)' }), h('span', { text: '<40%' }),
+    h('span', { class: 'legend-dot', style: 'background:var(--border)' }), h('span', { text: `<${MIN_ATTEMPTS_FOR_PR} attempts` }),
+  ]));
 }
 
 // Per-spot chronological series of session-% (no minimum-attempts filter
