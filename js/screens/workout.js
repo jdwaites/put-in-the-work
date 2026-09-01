@@ -13,7 +13,7 @@ const WorkoutScreen = {
     const state = {
       date: todayISO(),
       category: (last && last.category) || 'Basketball',
-      duration: (last && last.duration) || 30,
+      duration: last ? last.duration : 0,
       intensity: (last && last.intensity) || '2',
       grade: (last && last.grade) || '2',
       comments: '',
@@ -76,7 +76,7 @@ const WorkoutScreen = {
         (v) => (state.category = v)
       );
 
-      const durationStep = stepper(state.duration, { min: 5, max: 240, step: 5, label: 'duration' }, (v) => (state.duration = v));
+      const durationStep = stepper(state.duration, { min: 0, max: 240, step: 5, label: 'duration' }, (v) => (state.duration = v));
 
       const intensityTap = tapSelect(
         CHOICES.rating4.map((n) => ({ value: n, label: n })),
