@@ -334,6 +334,9 @@ html, body {
   margin: 4px 0 16px;
 }
 
+/* Reports trend charts */
+.trend-chart { display: block; margin-top: 6px; }
+
 /* Onboarding */
 .onboarding-checkbox-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
 .onboarding-checkbox-row {

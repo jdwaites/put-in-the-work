@@ -32,6 +32,7 @@ const ReportsScreen = {
       .then((data) => {
         body.innerHTML = '';
         renderPersonalRecords(body, player, screens, data);
+        renderTrendGraphs(body, player, screens, data);
       })
       .catch((e) => {
         body.innerHTML = '';
@@ -52,11 +53,11 @@ async function loadReportData(player, screens) {
   return data;
 }
 
-// A session's worth of attempts at a spot is the natural PR unit — nothing
-// stops multiple rows for the same spot in one session, so group by
-// (spot, session) first, sum makes/misses within the group, then take the
-// best session-% per spot among groups meeting the attempts threshold.
-function computeShotPRs(shotResults) {
+// A session's worth of attempts at a spot is the natural unit for both PRs
+// and trends — nothing stops multiple rows for the same spot in one
+// session, so group by (spot, session) first and sum makes/misses within
+// the group. Shared by computeShotPRs and computeShotTrends below.
+function groupShotsBySpotSession(shotResults) {
   const bySpotSession = new Map();
   shotResults.forEach((r) => {
     if (!r.spotId || !r.sessionId) return;
@@ -67,9 +68,13 @@ function computeShotPRs(shotResults) {
     if (r.date && r.date > g.date) g.date = r.date;
     bySpotSession.set(key, g);
   });
+  return Array.from(bySpotSession.values());
+}
 
+function computeShotPRs(shotResults) {
+  const groups = groupShotsBySpotSession(shotResults);
   const bestBySpot = new Map();
-  bySpotSession.forEach((g) => {
+  groups.forEach((g) => {
     const attempts = g.makes + g.misses;
     if (attempts < MIN_ATTEMPTS_FOR_PR) return;
     const pct = (g.makes / attempts) * 100;
@@ -80,6 +85,38 @@ function computeShotPRs(shotResults) {
   });
 
   return SPOTS.map((spot) => ({ spot, pr: bestBySpot.get(spot.id) })).filter((x) => x.pr);
+}
+
+// Per-spot chronological series of session-% (no minimum-attempts filter
+// here — trends are about shape over time, not a single best result).
+function computeShotTrends(shotResults) {
+  const groups = groupShotsBySpotSession(shotResults);
+  const bySpot = new Map();
+  groups.forEach((g) => {
+    const attempts = g.makes + g.misses;
+    if (attempts === 0) return;
+    const pct = (g.makes / attempts) * 100;
+    const list = bySpot.get(g.spotId) || [];
+    list.push({ date: g.date, pct });
+    bySpot.set(g.spotId, list);
+  });
+  bySpot.forEach((list) => list.sort((a, b) => (a.date > b.date ? 1 : -1)));
+  return bySpot;
+}
+
+function computeBenchmarkTrends(benchmarkRecords) {
+  const byTest = new Map();
+  benchmarkRecords.forEach((r) => {
+    const testId = (r.fields[FIELDS.benchmarkResults.test] || [])[0];
+    const value = r.fields[FIELDS.benchmarkResults.resultValue];
+    if (!testId || typeof value !== 'number') return;
+    const date = r.fields[FIELDS.benchmarkResults.date] || '';
+    const list = byTest.get(testId) || [];
+    list.push({ date, value });
+    byTest.set(testId, list);
+  });
+  byTest.forEach((list) => list.sort((a, b) => (a.date > b.date ? 1 : -1)));
+  return byTest;
 }
 
 // Direction inferred from each test's unit (no explicit direction field on
@@ -144,5 +181,42 @@ function renderPersonalRecords(body, player, screens, data) {
 
   if (!renderedAnySection) {
     body.appendChild(h('div', { class: 'queue-empty', text: `${player.name} isn't tracking Shooting or Benchmark yet.` }));
+  }
+}
+
+function renderTrendGraphs(body, player, screens, data) {
+  body.appendChild(h('h3', { class: 'section-heading', text: 'Trends' }));
+  let renderedAny = false;
+
+  if (screens.includes('shooting')) {
+    const trends = computeShotTrends(data.shotResults);
+    SPOTS.forEach((spot) => {
+      const series = trends.get(spot.id);
+      if (!series || series.length === 0) return;
+      renderedAny = true;
+      const last = series[series.length - 1];
+      const wrap = h('div', { class: 'spot-entry-row' });
+      wrap.appendChild(h('div', { class: 'field-label', text: `${spot.name} — ${Math.round(last.pct)}% last time (${series.length} session${series.length === 1 ? '' : 's'})` }));
+      wrap.appendChild(lineChartSVG(series.map((s) => s.pct), { min: 0, max: 100 }));
+      body.appendChild(wrap);
+    });
+  }
+
+  if (screens.includes('benchmark')) {
+    const trends = computeBenchmarkTrends(data.benchmarkRecords);
+    TESTS.forEach((test) => {
+      const series = trends.get(test.id);
+      if (!series || series.length === 0) return;
+      renderedAny = true;
+      const last = series[series.length - 1];
+      const wrap = h('div', { class: 'spot-entry-row' });
+      wrap.appendChild(h('div', { class: 'field-label', text: `${test.name} — ${last.value} ${test.unit} last time (${series.length} result${series.length === 1 ? '' : 's'})` }));
+      wrap.appendChild(lineChartSVG(series.map((s) => s.value), {}));
+      body.appendChild(wrap);
+    });
+  }
+
+  if (!renderedAny) {
+    body.appendChild(h('div', { class: 'queue-empty', text: 'No history yet — trends will show up here after a few sessions.' }));
   }
 }
