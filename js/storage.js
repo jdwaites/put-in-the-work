@@ -11,6 +11,8 @@ const LS_KEYS = {
   lastSaved: 'pw_last_saved',
   recentWorkouts: 'pw_recent_workouts',
   shootingDrafts: 'pw_shooting_copractice',
+  playerScreenOverrides: 'pw_player_screen_overrides',
+  onboarded: 'pw_onboarded',
 };
 
 function readJSON(key, fallback) {
@@ -170,6 +172,35 @@ const ShootingDrafts = {
   },
   clear() {
     writeJSON(LS_KEYS.shootingDrafts, { activePlayers: [], currentActivePlayerId: null, drafts: {} });
+  },
+};
+
+// PLAYERS[].screens is a hardcoded const in js/data.js, not persistable at
+// runtime — onboarding's sport-list step can't literally rewrite it, so a
+// per-player override lives here instead. effectiveScreens() is what every
+// screen-gating check should read, not player.screens directly.
+const PlayerScreenOverrides = {
+  get(playerId) {
+    const all = readJSON(LS_KEYS.playerScreenOverrides, {});
+    return all[playerId] || null;
+  },
+  set(playerId, screens) {
+    const all = readJSON(LS_KEYS.playerScreenOverrides, {});
+    all[playerId] = screens;
+    writeJSON(LS_KEYS.playerScreenOverrides, all);
+  },
+};
+
+function effectiveScreens(player) {
+  return PlayerScreenOverrides.get(player.id) || player.screens;
+}
+
+const Onboarding = {
+  isComplete() {
+    return localStorage.getItem(LS_KEYS.onboarded) === '1';
+  },
+  markComplete() {
+    localStorage.setItem(LS_KEYS.onboarded, '1');
   },
 };
 

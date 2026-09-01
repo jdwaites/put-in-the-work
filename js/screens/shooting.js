@@ -92,7 +92,7 @@ async function fetchRoutines() {
 }
 
 function eligiblePlayers() {
-  return PLAYERS.filter((p) => p.screens.includes('shooting'));
+  return PLAYERS.filter((p) => effectiveScreens(p).includes('shooting'));
 }
 
 const ShootingScreen = {

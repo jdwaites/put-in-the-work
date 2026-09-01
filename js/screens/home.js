@@ -12,7 +12,7 @@ const HomeScreen = {
       { key: 'shooting', label: 'Log Shooting', hash: '#shooting', icon: '🎯' },
       { key: 'benchmark', label: 'Log Benchmark', hash: '#benchmark', icon: '📏' },
       { key: 'game', label: 'Log Game', hash: '#game', icon: '🏆' },
-    ].filter((t) => player.screens.includes(t.key));
+    ].filter((t) => effectiveScreens(player).includes(t.key));
     const grid = h('div', { class: 'tile-grid' });
     tiles.forEach((t) => {
       grid.appendChild(
