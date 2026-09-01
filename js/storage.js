@@ -8,8 +8,11 @@ const LS_KEYS = {
   queue: 'pw_queue',
   resolvedIds: 'pw_resolved_ids',
   lastEntry: 'pw_last_entry',
+  lastSaved: 'pw_last_saved',
   recentWorkouts: 'pw_recent_workouts',
   shootingDrafts: 'pw_shooting_copractice',
+  playerScreenOverrides: 'pw_player_screen_overrides',
+  onboarded: 'pw_onboarded',
 };
 
 function readJSON(key, fallback) {
@@ -121,6 +124,31 @@ const LastEntry = {
   },
 };
 
+// Unlike LastEntry (a few prefill fields for the *next new* entry),
+// LastSaved stores enough to re-locate and update the *exact* record just
+// saved: { localId, tableId, fields, screenLabel, savedAt }. localId stays
+// valid indefinitely as a lookup key whether the record has synced yet or
+// not — see ResolvedIds (never expires) and Queue (removed once synced).
+const LastSaved = {
+  key(screen, playerId) {
+    return `${screen}:${playerId}`;
+  },
+  get(screen, playerId) {
+    const all = readJSON(LS_KEYS.lastSaved, {});
+    return all[LastSaved.key(screen, playerId)] || null;
+  },
+  set(screen, playerId, entry) {
+    const all = readJSON(LS_KEYS.lastSaved, {});
+    all[LastSaved.key(screen, playerId)] = entry;
+    writeJSON(LS_KEYS.lastSaved, all);
+  },
+  clear(screen, playerId) {
+    const all = readJSON(LS_KEYS.lastSaved, {});
+    delete all[LastSaved.key(screen, playerId)];
+    writeJSON(LS_KEYS.lastSaved, all);
+  },
+};
+
 // Co-practice shooting drafts: multiple players' in-progress Shooting
 // Session entries can exist at once (a co-practice session with two kids
 // shooting at once shouldn't have switching the active player wipe the
@@ -144,6 +172,45 @@ const ShootingDrafts = {
   },
   clear() {
     writeJSON(LS_KEYS.shootingDrafts, { activePlayers: [], currentActivePlayerId: null, drafts: {} });
+  },
+};
+
+// PLAYERS[].screens is a hardcoded const in js/data.js, not persistable at
+// runtime — onboarding's sport-list step can't literally rewrite it, so a
+// per-player override lives here instead. effectiveScreens() is what every
+// screen-gating check should read, not player.screens directly.
+const PlayerScreenOverrides = {
+  get(playerId) {
+    const all = readJSON(LS_KEYS.playerScreenOverrides, {});
+    return all[playerId] || null;
+  },
+  set(playerId, screens) {
+    const all = readJSON(LS_KEYS.playerScreenOverrides, {});
+    all[playerId] = screens;
+    writeJSON(LS_KEYS.playerScreenOverrides, all);
+  },
+};
+
+function effectiveScreens(player) {
+  return PlayerScreenOverrides.get(player.id) || player.screens;
+}
+
+const Onboarding = {
+  isComplete() {
+    if (localStorage.getItem(LS_KEYS.onboarded) === '1') return true;
+    // Grandfather in installs that were already using the app before this
+    // flow existed — a pre-existing CurrentPlayer choice is reliable
+    // evidence of that, since every player switcher writes it on first tap.
+    // Without this, shipping onboarding would force it on this app's real,
+    // already-established family users, not just genuinely fresh installs.
+    if (localStorage.getItem(LS_KEYS.currentPlayer)) {
+      Onboarding.markComplete();
+      return true;
+    }
+    return false;
+  },
+  markComplete() {
+    localStorage.setItem(LS_KEYS.onboarded, '1');
   },
 };
 

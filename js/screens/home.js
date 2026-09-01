@@ -12,7 +12,10 @@ const HomeScreen = {
       { key: 'shooting', label: 'Log Shooting', hash: '#shooting', icon: '🎯' },
       { key: 'benchmark', label: 'Log Benchmark', hash: '#benchmark', icon: '📏' },
       { key: 'game', label: 'Log Game', hash: '#game', icon: '🏆' },
-    ].filter((t) => player.screens.includes(t.key));
+    ].filter((t) => effectiveScreens(player).includes(t.key));
+    // Reports is relevant to every player (including walks-only profiles
+    // with just Workout/Strength) — not gated by effectiveScreens.
+    tiles.push({ key: 'reports', label: 'Reports', hash: '#reports', icon: '📊' });
     const grid = h('div', { class: 'tile-grid' });
     tiles.forEach((t) => {
       grid.appendChild(

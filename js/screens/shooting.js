@@ -92,7 +92,7 @@ async function fetchRoutines() {
 }
 
 function eligiblePlayers() {
-  return PLAYERS.filter((p) => p.screens.includes('shooting'));
+  return PLAYERS.filter((p) => effectiveScreens(p).includes('shooting'));
 }
 
 const ShootingScreen = {
@@ -103,8 +103,55 @@ const ShootingScreen = {
     let routinesFetchError = null;
     let addingMoveForRowIndex = null; // index into current draft's rows, or null
     let confirmRemovePlayerId = null; // player id mid "Confirm?" tap for tab removal
+    let showAllMakesConfirm = false; // interrupt-once panel before submitting an all-makes session
+    let editLastShot = null; // { lastSaved, spotId, moveId, moveDetail, attempts, makes, misses } or null
+    let lastTimeCache = {}; // playerId -> Map(spotId -> most-recent session's {makes, misses, date})
+    let lastTimeFetching = new Set();
+
+    // Powers the inline "Last time here: 6/10" hint in renderRow. Fetched
+    // once per active player and cached — renderBody() calls this on every
+    // render, but it no-ops once cached (or already in flight).
+    function ensureLastTimeData(playerId) {
+      if (lastTimeCache[playerId] || lastTimeFetching.has(playerId)) return;
+      if (!Settings.hasToken() || !navigator.onLine) return;
+      lastTimeFetching.add(playerId);
+      fetchPlayerShotSpotResults(playerId)
+        .then((results) => {
+          const bySpotSession = new Map();
+          results.forEach((r) => {
+            if (!r.spotId || !r.sessionId) return;
+            const key = `${r.spotId}::${r.sessionId}`;
+            const g = bySpotSession.get(key) || { spotId: r.spotId, date: r.date, makes: 0, misses: 0 };
+            g.makes += r.makes;
+            g.misses += r.misses;
+            if (r.date && r.date > g.date) g.date = r.date;
+            bySpotSession.set(key, g);
+          });
+          const latestBySpot = new Map();
+          bySpotSession.forEach((g) => {
+            const existing = latestBySpot.get(g.spotId);
+            if (!existing || g.date > existing.date) latestBySpot.set(g.spotId, g);
+          });
+          lastTimeCache[playerId] = latestBySpot;
+        })
+        .catch(() => {
+          lastTimeCache[playerId] = new Map(); // fail silently — the hint just won't show, not a critical path
+        })
+        .finally(() => {
+          lastTimeFetching.delete(playerId);
+          renderBody();
+        });
+    }
 
     const coState = ShootingDrafts.get();
+    // Drafts saved before the Attempts stepper existed have no `.attempts` —
+    // backfill it once so old in-progress drafts don't silently allow
+    // makes > attempts the first time they're reopened.
+    Object.values(coState.drafts).forEach((draft) => {
+      (draft.rows || []).forEach((row) => {
+        if (row.attempts === undefined) row.attempts = (row.makes || 0) + (row.misses || 0);
+      });
+    });
     const eligible = eligiblePlayers();
 
     if (coState.activePlayers.length === 0) {
@@ -234,8 +281,31 @@ const ShootingScreen = {
         oninput: (e) => { row.moveDetail = e.target.value; persist(); },
       });
 
-      const makesStep = stepper(row.makes, { min: 0, max: 99, label: 'makes' }, (v) => { row.makes = v; persist(); });
-      const missesStep = stepper(row.misses, { min: 0, max: 99, label: 'misses' }, (v) => { row.misses = v; persist(); });
+      const missesDisplay = h('div', { class: 'stepper-value', text: String(row.misses) });
+      const missesWrap = h('div', { class: 'stepper stepper-readonly' }, [missesDisplay]);
+
+      // Makes can never exceed Attempts — clamp instead of independently
+      // capping at an arbitrary ceiling, since an attempt that isn't a make
+      // must show up as a miss (the real bug this fixes: misses silently
+      // left at 0 made a session look like 100% makes).
+      const makesStep = stepper(row.makes, { min: 0, max: 99, label: 'makes', quickAdds: [5, 10] }, (v) => {
+        const clamped = Math.min(v, row.attempts);
+        if (clamped !== v) { makesStep.setValue(clamped); return; }
+        row.makes = clamped;
+        row.misses = Math.max(0, row.attempts - row.makes);
+        missesDisplay.textContent = String(row.misses);
+        persist();
+      });
+      const attemptsStep = stepper(row.attempts, { min: 0, max: 99, label: 'attempts', quickAdds: [5, 10] }, (v) => {
+        row.attempts = v;
+        if (row.makes > v) {
+          makesStep.setValue(v); // clamps makes down and recomputes misses
+        } else {
+          row.misses = Math.max(0, row.attempts - row.makes);
+          missesDisplay.textContent = String(row.misses);
+        }
+        persist();
+      });
 
       rowWrap.appendChild(h('div', { class: 'spot-entry-header' }, [
         h('div', { class: 'spot-entry-title', text: `Spot ${idx + 1}` }),
@@ -246,10 +316,16 @@ const ShootingScreen = {
         } }, '✕'),
       ]));
       rowWrap.appendChild(fieldRow('Spot', spotSelect));
+      const lastTimeMap = lastTimeCache[coState.currentActivePlayerId];
+      const lastTimeGroup = lastTimeMap && row.spotId ? lastTimeMap.get(row.spotId) : null;
+      if (lastTimeGroup) {
+        rowWrap.appendChild(h('div', { class: 'last-time-hint', text: `Last time here: ${lastTimeGroup.makes}/${lastTimeGroup.makes + lastTimeGroup.misses}` }));
+      }
       rowWrap.appendChild(fieldRow('Move', moveSelect));
       rowWrap.appendChild(fieldRow('Move Detail', detailInput));
-      rowWrap.appendChild(fieldRow('Makes' + (row.targetMakes ? ` (target: ${row.targetMakes})` : ''), makesStep));
-      rowWrap.appendChild(fieldRow('Misses', missesStep));
+      rowWrap.appendChild(fieldRow('Attempts', attemptsStep));
+      rowWrap.appendChild(fieldRow('Makes', makesStep));
+      rowWrap.appendChild(fieldRow('Misses', missesWrap));
       return rowWrap;
     }
 
@@ -307,6 +383,9 @@ const ShootingScreen = {
           // perfectly, rather than tapping "+" up from zero every time.
           // Driven entirely by each step's own Target Makes, so this works
           // the same way for any routine, not just the two seeded today.
+          // Attempts defaults to the same target — a perfect run is assumed,
+          // same as Makes always has been.
+          attempts: step.targetMakes || 0,
           makes: step.targetMakes || 0,
           misses: 0,
           targetMakes: step.targetMakes || null,
@@ -341,6 +420,7 @@ const ShootingScreen = {
       body.innerHTML = '';
       const player = PLAYERS.find((p) => p.id === coState.currentActivePlayerId);
       const draft = currentDraft();
+      ensureLastTimeData(player.id);
 
       body.appendChild(h('h3', { class: 'section-heading', text: `${player.name}'s entry` }));
 
@@ -361,6 +441,15 @@ const ShootingScreen = {
       if (routinesFetchError) {
         body.appendChild(h('div', { class: 'fetch-error', text: `Couldn't load routines from Airtable: ${routinesFetchError} — check your token's table access in Settings.` }));
       }
+      const lastShootingEntry = LastEntry.get('shooting', player.id);
+      if (lastShootingEntry && (lastShootingEntry.rows || []).length > 0) {
+        body.appendChild(secondaryButton('↺ Repeat last session', () => {
+          draft.rows = lastShootingEntry.rows.map((row) => ({ ...row }));
+          draft.routineTouched = true; // clone is a deliberate pick, don't let the default-routine auto-prefill fight it
+          persist();
+          renderBody();
+        }));
+      }
       body.appendChild(fieldRow('Intensity (1–4)', intensityTap));
       body.appendChild(fieldRow('Performance Grade (1–4)', gradeTap));
       body.appendChild(fieldRow('Comments', commentsArea));
@@ -375,18 +464,151 @@ const ShootingScreen = {
       draft.rows.forEach((row, idx) => body.appendChild(renderRow(row, idx)));
 
       body.appendChild(secondaryButton('+ Add spot', () => {
-        draft.rows.push({ spotId: SPOTS[0].id, moveId: '', moveDetail: '', makes: 0, misses: 0, targetMakes: null });
+        draft.rows.push({ spotId: SPOTS[0].id, moveId: '', moveDetail: '', attempts: 0, makes: 0, misses: 0, targetMakes: null });
         persist();
         renderBody();
       }));
 
+      const lastShotSaved = LastSaved.get('shootingSpot', coState.currentActivePlayerId);
+      if (lastShotSaved && !editLastShot) {
+        body.appendChild(secondaryButton('✎ Edit last shot', () => {
+          const f = lastShotSaved.fields;
+          const makes = f[FIELDS.shotSpotResults.makes] || 0;
+          const misses = f[FIELDS.shotSpotResults.misses] || 0;
+          editLastShot = {
+            lastSaved: lastShotSaved,
+            spotId: (f[FIELDS.shotSpotResults.spot] || [])[0] || SPOTS[0].id,
+            moveId: (f[FIELDS.shotSpotResults.move] || [])[0] || '',
+            moveDetail: f[FIELDS.shotSpotResults.moveDetail] || '',
+            attempts: makes + misses,
+            makes,
+            misses,
+          };
+          renderBody();
+        }));
+      }
+      if (editLastShot) {
+        body.appendChild(renderEditLastShotPanel());
+      }
+
       body.appendChild(h('div', { class: 'divider' }));
 
-      const activeNames = coState.activePlayers.map((id) => PLAYERS.find((p) => p.id === id).name).join(' + ');
-      body.appendChild(primaryButton(`Submit Session${coState.activePlayers.length > 1 ? 's' : ''} (${activeNames})`, submitAll));
+      if (showAllMakesConfirm) {
+        body.appendChild(renderAllMakesConfirmPanel());
+      } else {
+        const activeNames = coState.activePlayers.map((id) => PLAYERS.find((p) => p.id === id).name).join(' + ');
+        body.appendChild(primaryButton(`Submit Session${coState.activePlayers.length > 1 ? 's' : ''} (${activeNames})`, checkAndSubmit));
+      }
     }
 
-    function submitAll() {
+    // A session where every spot came back 100% makes is more often a sign
+    // Misses never got touched than a genuinely perfect practice — interrupt
+    // once (not a hard block) so a parent can double-check before it saves.
+    function renderAllMakesConfirmPanel() {
+      const wrap = h('div', { class: 'inline-add-form' });
+      wrap.appendChild(h('div', { class: 'field-label', text: 'This whole session was makes — double-check before saving?' }));
+      wrap.appendChild(secondaryButton('Review entries', () => {
+        showAllMakesConfirm = false;
+        renderBody();
+      }));
+      wrap.appendChild(primaryButton('Save anyway', () => {
+        showAllMakesConfirm = false;
+        doSubmit();
+      }));
+      return wrap;
+    }
+
+    // Standalone edit for the single most-recent Shot Spot Result — separate
+    // from the current draft's rows, since it may belong to an already-
+    // submitted (and possibly already-synced) session from a prior visit.
+    function renderEditLastShotPanel() {
+      const wrap = h('div', { class: 'inline-add-form' });
+      wrap.appendChild(h('h3', { class: 'section-heading', text: 'Edit last shot' }));
+
+      const spotSelect = selectEl(
+        SPOTS.map((s) => ({ value: s.id, label: s.name })),
+        editLastShot.spotId,
+        (v) => { editLastShot.spotId = v; }
+      );
+      const moveOptions = [
+        { value: '', label: 'Select a move…' },
+        ...moves.map((m) => ({ value: m.id, label: m.name })),
+      ];
+      const moveSelect = selectEl(moveOptions, editLastShot.moveId || '', (v) => { editLastShot.moveId = v; });
+      const detailInput = h('input', {
+        class: 'text-input',
+        placeholder: 'Move detail (optional)',
+        value: editLastShot.moveDetail || '',
+        oninput: (e) => { editLastShot.moveDetail = e.target.value; },
+      });
+
+      const missesDisplay = h('div', { class: 'stepper-value', text: String(editLastShot.misses) });
+      const missesWrap = h('div', { class: 'stepper stepper-readonly' }, [missesDisplay]);
+      const makesStep = stepper(editLastShot.makes, { min: 0, max: 99, label: 'makes', quickAdds: [5, 10] }, (v) => {
+        const clamped = Math.min(v, editLastShot.attempts);
+        if (clamped !== v) { makesStep.setValue(clamped); return; }
+        editLastShot.makes = clamped;
+        editLastShot.misses = Math.max(0, editLastShot.attempts - editLastShot.makes);
+        missesDisplay.textContent = String(editLastShot.misses);
+      });
+      const attemptsStep = stepper(editLastShot.attempts, { min: 0, max: 99, label: 'attempts', quickAdds: [5, 10] }, (v) => {
+        editLastShot.attempts = v;
+        if (editLastShot.makes > v) {
+          makesStep.setValue(v);
+        } else {
+          editLastShot.misses = Math.max(0, editLastShot.attempts - editLastShot.makes);
+          missesDisplay.textContent = String(editLastShot.misses);
+        }
+      });
+
+      wrap.appendChild(fieldRow('Spot', spotSelect));
+      wrap.appendChild(fieldRow('Move', moveSelect));
+      wrap.appendChild(fieldRow('Move Detail', detailInput));
+      wrap.appendChild(fieldRow('Attempts', attemptsStep));
+      wrap.appendChild(fieldRow('Makes', makesStep));
+      wrap.appendChild(fieldRow('Misses', missesWrap));
+
+      wrap.appendChild(secondaryButton('Cancel', () => {
+        editLastShot = null;
+        renderBody();
+      }));
+      wrap.appendChild(primaryButton('Update Shot', async () => {
+        const spot = SPOTS.find((s) => s.id === editLastShot.spotId);
+        const move = moves.find((m) => m.id === editLastShot.moveId);
+        const fields = {
+          [FIELDS.shotSpotResults.logEntry]: `${spot ? spot.name : 'Spot'} – ${move ? move.name.replace(' (syncing…)', '') : 'Move'} – ${editLastShot.makes}/${editLastShot.makes + editLastShot.misses}`,
+          [FIELDS.shotSpotResults.spot]: [editLastShot.spotId],
+          [FIELDS.shotSpotResults.makes]: editLastShot.makes,
+          [FIELDS.shotSpotResults.misses]: editLastShot.misses,
+        };
+        if (editLastShot.moveDetail) fields[FIELDS.shotSpotResults.moveDetail] = editLastShot.moveDetail;
+        // A brand-new, still-unsynced move can't be relinked via PATCH — same
+        // limitation as Workout's template link during edit.
+        if (editLastShot.moveId && move && !move.isLocal) fields[FIELDS.shotSpotResults.move] = [editLastShot.moveId];
+
+        const ok = await updateExistingRecord(
+          { localId: editLastShot.lastSaved.localId, tableId: TABLES.shotSpotResults.id },
+          fields
+        );
+        if (!ok) {
+          toast("Couldn't find that entry to update — try refreshing", 'warn');
+          return;
+        }
+        LastSaved.set('shootingSpot', coState.currentActivePlayerId, {
+          localId: editLastShot.lastSaved.localId,
+          tableId: TABLES.shotSpotResults.id,
+          fields,
+          screenLabel: fields[FIELDS.shotSpotResults.logEntry],
+          savedAt: new Date().toISOString(),
+        });
+        editLastShot = null;
+        toast('Shot updated');
+        renderBody();
+      }));
+      return wrap;
+    }
+
+    function checkAndSubmit() {
       const missingRows = coState.activePlayers.filter((id) => (coState.drafts[id].rows || []).length === 0);
       if (missingRows.length > 0) {
         const names = missingRows.map((id) => PLAYERS.find((p) => p.id === id).name).join(', ');
@@ -394,6 +616,22 @@ const ShootingScreen = {
         return;
       }
 
+      const anyAllMakes = coState.activePlayers.some((id) => {
+        const rows = coState.drafts[id].rows;
+        const totalMakes = rows.reduce((sum, r) => sum + r.makes, 0);
+        const totalMisses = rows.reduce((sum, r) => sum + r.misses, 0);
+        return totalMakes > 0 && totalMisses === 0;
+      });
+      if (anyAllMakes) {
+        showAllMakesConfirm = true;
+        renderBody();
+        return;
+      }
+
+      doSubmit();
+    }
+
+    function doSubmit() {
       let totalSpots = 0;
       coState.activePlayers.forEach((playerId) => {
         const player = PLAYERS.find((p) => p.id === playerId);
@@ -419,7 +657,7 @@ const ShootingScreen = {
           screenLabel: sessionLabel,
         });
 
-        draft.rows.forEach((row) => {
+        draft.rows.forEach((row, rowIdx) => {
           const spot = SPOTS.find((s) => s.id === row.spotId);
           const move = moves.find((m) => m.id === row.moveId);
           const dependsOn = [{ localId: sessionLocalId, linkField: FIELDS.shotSpotResults.session }];
@@ -437,8 +675,9 @@ const ShootingScreen = {
               fields[FIELDS.shotSpotResults.move] = [row.moveId];
             }
           }
+          const resultLocalId = uuid();
           Queue.add({
-            localId: uuid(),
+            localId: resultLocalId,
             tableId: TABLES.shotSpotResults.id,
             fields,
             dependsOn,
@@ -447,7 +686,21 @@ const ShootingScreen = {
             screenLabel: `${spot ? spot.name : 'Spot'} (${player.name} session)`,
           });
           totalSpots += 1;
+          // "Edit last entry" for Shooting is scoped to the single most
+          // recent Shot Spot Result row, not the whole multi-child session
+          // (which would need a mix of PATCH+POST+DELETE to reconcile).
+          if (rowIdx === draft.rows.length - 1) {
+            LastSaved.set('shootingSpot', playerId, {
+              localId: resultLocalId,
+              tableId: TABLES.shotSpotResults.id,
+              fields,
+              screenLabel: fields[FIELDS.shotSpotResults.logEntry],
+              savedAt: new Date().toISOString(),
+            });
+          }
         });
+
+        LastEntry.set('shooting', playerId, { routineName: draft.routineName, rows: draft.rows });
       });
 
       ShootingDrafts.clear();

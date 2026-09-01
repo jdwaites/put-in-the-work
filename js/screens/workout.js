@@ -7,11 +7,13 @@ const WorkoutScreen = {
     const playerId = CurrentPlayer.get();
     const player = PLAYERS.find((p) => p.id === playerId);
     const last = LastEntry.get('workout', playerId);
+    let lastSaved = LastSaved.get('workout', playerId);
+    let editingLocalId = null;
 
     const state = {
       date: todayISO(),
       category: (last && last.category) || 'Basketball',
-      duration: (last && last.duration) || 30,
+      duration: last ? last.duration : 0,
       intensity: (last && last.intensity) || '2',
       grade: (last && last.grade) || '2',
       comments: '',
@@ -30,6 +32,20 @@ const WorkoutScreen = {
     if (last) {
       body.appendChild(secondaryButton('↺ Repeat last entry', () => {
         Object.assign(state, last, { comments: last.comments || '' });
+        renderForm();
+      }));
+    }
+    if (lastSaved) {
+      body.appendChild(secondaryButton('✎ Edit last entry', () => {
+        const f = lastSaved.fields;
+        state.date = f[FIELDS.workoutLogs.date] || state.date;
+        state.category = f[FIELDS.workoutLogs.category] || state.category;
+        state.duration = f[FIELDS.workoutLogs.duration] ?? state.duration;
+        state.intensity = f[FIELDS.workoutLogs.intensity] || state.intensity;
+        state.grade = f[FIELDS.workoutLogs.grade] || state.grade;
+        state.comments = f[FIELDS.workoutLogs.comments] || '';
+        state.videoUrl = f[FIELDS.workoutLogs.videoUrl] || '';
+        editingLocalId = lastSaved.localId;
         renderForm();
       }));
     }
@@ -60,7 +76,7 @@ const WorkoutScreen = {
         (v) => (state.category = v)
       );
 
-      const durationStep = stepper(state.duration, { min: 5, max: 240, step: 5, label: 'duration' }, (v) => (state.duration = v));
+      const durationStep = stepper(state.duration, { min: 0, max: 240, step: 5, label: 'duration' }, (v) => (state.duration = v));
 
       const intensityTap = tapSelect(
         CHOICES.rating4.map((n) => ({ value: n, label: n })),
@@ -113,8 +129,7 @@ const WorkoutScreen = {
       formHost.appendChild(fieldRow('YouTube / video link (optional)', videoUrlInput));
       formHost.appendChild(fieldRow('Comments', commentsArea));
 
-      formHost.appendChild(primaryButton('Save Workout', () => {
-        const localId = uuid();
+      formHost.appendChild(primaryButton(editingLocalId ? 'Update Entry' : 'Save Workout', async () => {
         const label = `${player.name} – ${state.category} – ${state.date}`;
         const fields = {
           [FIELDS.workoutLogs.logEntry]: label,
@@ -128,30 +143,47 @@ const WorkoutScreen = {
         };
         if (state.videoUrl) fields[FIELDS.workoutLogs.videoUrl] = state.videoUrl;
 
-        const queueItem = {
-          localId,
-          tableId: TABLES.workoutLogs.id,
-          fields,
-          status: 'pending',
-          createdAt: new Date().toISOString(),
-          screenLabel: label,
-          onSyncedTag: 'workoutLog',
-          playerIdForCache: playerId,
-        };
-
         const chosenTemplate = templates.find((t) => t.id === state.templateId);
+        // A brand-new, still-unsynced template can't be linked via a PATCH
+        // (no dependsOn support on edit) — only relink on create, or on
+        // edit when the template has already synced to a real record id.
+        const dependsOn = [];
         if (chosenTemplate) {
           if (chosenTemplate.isLocal) {
-            queueItem.dependsOn = [{ localId: chosenTemplate.id, linkField: FIELDS.workoutLogs.template }];
+            if (!editingLocalId) dependsOn.push({ localId: chosenTemplate.id, linkField: FIELDS.workoutLogs.template });
           } else {
             fields[FIELDS.workoutLogs.template] = [chosenTemplate.id];
           }
         }
 
-        Queue.add(queueItem);
+        if (editingLocalId) {
+          const ok = await updateExistingRecord({ localId: editingLocalId, tableId: TABLES.workoutLogs.id }, fields);
+          if (!ok) {
+            toast("Couldn't find that entry to update — try refreshing", 'warn');
+            return;
+          }
+          lastSaved = { localId: editingLocalId, tableId: TABLES.workoutLogs.id, fields, screenLabel: label, savedAt: new Date().toISOString() };
+          LastSaved.set('workout', playerId, lastSaved);
+          toast('Entry updated');
+        } else {
+          const localId = uuid();
+          const queueItem = {
+            localId,
+            tableId: TABLES.workoutLogs.id,
+            fields,
+            dependsOn,
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+            screenLabel: label,
+            onSyncedTag: 'workoutLog',
+            playerIdForCache: playerId,
+          };
+          Queue.add(queueItem);
+          LastSaved.set('workout', playerId, { localId, tableId: TABLES.workoutLogs.id, fields, screenLabel: label, savedAt: new Date().toISOString() });
+          Sync.flush();
+          toast('Workout saved — syncing');
+        }
         LastEntry.set('workout', playerId, { category: state.category, duration: state.duration, intensity: state.intensity, grade: state.grade, comments: state.comments });
-        Sync.flush();
-        toast('Workout saved — syncing');
         WorkoutScreen.render(container);
       }));
     }

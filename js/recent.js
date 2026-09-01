@@ -34,6 +34,88 @@ async function airtableDeleteMany(tableId, recordIds) {
   return true;
 }
 
+async function airtableUpdateOne(tableId, recordId, fields) {
+  const { pat } = Settings.get();
+  const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${tableId}/${recordId}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${pat}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ fields, typecast: true }),
+  });
+  return res.ok;
+}
+
+// Updates the exact record a LastSaved entry points at, whichever state
+// it's in: already synced (PATCH the real Airtable record), still sitting
+// in the local queue (mutate the pending create in place — no network call,
+// so it goes out with the edited fields the first time it syncs), or
+// neither (a narrow mid-flight race between those two states) — the caller
+// should toast a "couldn't find that entry" message on `false`.
+async function updateExistingRecord(lastSaved, newFields) {
+  const resolvedId = ResolvedIds.get(lastSaved.localId);
+  if (resolvedId) {
+    return airtableUpdateOne(lastSaved.tableId, resolvedId, newFields);
+  }
+  if (Queue.all().some((i) => i.localId === lastSaved.localId)) {
+    Queue.update(lastSaved.localId, { fields: newFields });
+    return true;
+  }
+  return false;
+}
+
+// Paginates through every record in a table via Airtable's `offset` cursor.
+// fetchRecentRecords below deliberately caps at the latest 100 records,
+// which is fine for a "recent 5" list but not for all-time PRs/trends/
+// exports — those need this instead. pageSize always stays at Airtable's
+// hard cap of 100 (see CLAUDE.md: exceeding it is a real 422 this app hit
+// before).
+async function fetchAllRecords(tableId, params) {
+  let all = [];
+  let offset;
+  do {
+    const query = { ...(params || {}), pageSize: '100' };
+    if (offset) query.offset = offset;
+    const data = await airtableGet(tableId, query);
+    all = all.concat(data.records);
+    offset = data.offset;
+  } while (offset);
+  return all;
+}
+
+// Shot Spot Results have no `player` or `date` field of their own — only
+// `session`/`spot`/`move`/`makes`/`misses` — so every player/date-scoped
+// read has to join through Shooting Sessions, the same one level
+// deleteShootingSessionCascade already does below. Returns a flat list of
+// { id, sessionId, date, spotId, moveId, makes, misses } for one player,
+// across all of their sessions.
+async function fetchPlayerShotSpotResults(playerId) {
+  const sessions = await fetchAllRecords(TABLES.shootingSessions.id, {
+    'sort[0][field]': FIELDS.shootingSessions.date,
+    'sort[0][direction]': 'asc',
+  });
+  const playerSessions = sessions.filter((r) => (r.fields[FIELDS.shootingSessions.player] || []).includes(playerId));
+  const sessionDateById = new Map(playerSessions.map((r) => [r.id, r.fields[FIELDS.shootingSessions.date] || '']));
+  const sessionIds = new Set(playerSessions.map((r) => r.id));
+
+  const allResults = await fetchAllRecords(TABLES.shotSpotResults.id, {});
+  return allResults
+    .filter((r) => (r.fields[FIELDS.shotSpotResults.session] || []).some((sid) => sessionIds.has(sid)))
+    .map((r) => {
+      const sessionId = (r.fields[FIELDS.shotSpotResults.session] || [])[0];
+      return {
+        id: r.id,
+        sessionId,
+        date: sessionDateById.get(sessionId) || '',
+        spotId: (r.fields[FIELDS.shotSpotResults.spot] || [])[0],
+        moveId: (r.fields[FIELDS.shotSpotResults.move] || [])[0],
+        makes: r.fields[FIELDS.shotSpotResults.makes] || 0,
+        misses: r.fields[FIELDS.shotSpotResults.misses] || 0,
+      };
+    });
+}
+
 // Fetches a recent window and filters client-side by linked record ID,
 // rather than filtering server-side by the Player's Airtable display name —
 // that would require this (public) file's player labels to match whatever

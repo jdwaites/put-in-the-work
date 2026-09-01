@@ -7,6 +7,8 @@ const BenchmarkScreen = {
     const playerId = CurrentPlayer.get();
     const player = PLAYERS.find((p) => p.id === playerId);
     const last = LastEntry.get('benchmark', playerId);
+    let lastSaved = LastSaved.get('benchmark', playerId);
+    let editingLocalId = null;
 
     const state = {
       date: todayISO(),
@@ -19,6 +21,17 @@ const BenchmarkScreen = {
     if (last) {
       body.appendChild(secondaryButton('↺ Repeat last entry', () => {
         state.testId = last.testId;
+        renderForm();
+      }));
+    }
+    if (lastSaved) {
+      body.appendChild(secondaryButton('✎ Edit last entry', () => {
+        const f = lastSaved.fields;
+        state.date = f[FIELDS.benchmarkResults.date] || state.date;
+        state.testId = (f[FIELDS.benchmarkResults.test] || [])[0] || state.testId;
+        state.resultValue = f[FIELDS.benchmarkResults.resultValue] ?? state.resultValue;
+        state.notes = f[FIELDS.benchmarkResults.notes] || '';
+        editingLocalId = lastSaved.localId;
         renderForm();
       }));
     }
@@ -54,32 +67,45 @@ const BenchmarkScreen = {
       formHost.appendChild(fieldRow(`Result (${test.unit})`, resultInput));
       formHost.appendChild(fieldRow('Notes', notesArea));
 
-      formHost.appendChild(primaryButton('Save Benchmark', () => {
+      formHost.appendChild(primaryButton(editingLocalId ? 'Update Entry' : 'Save Benchmark', async () => {
         const value = parseFloat(state.resultValue);
         if (isNaN(value)) {
           toast('Enter a result value', 'warn');
           return;
         }
-        const localId = uuid();
         const label = `${player.name} – ${test.name} – ${state.date}`;
-        Queue.add({
-          localId,
-          tableId: TABLES.benchmarkResults.id,
-          fields: {
-            [FIELDS.benchmarkResults.logEntry]: label,
-            [FIELDS.benchmarkResults.player]: [playerId],
-            [FIELDS.benchmarkResults.test]: [state.testId],
-            [FIELDS.benchmarkResults.date]: state.date,
-            [FIELDS.benchmarkResults.resultValue]: value,
-            [FIELDS.benchmarkResults.notes]: state.notes,
-          },
-          status: 'pending',
-          createdAt: new Date().toISOString(),
-          screenLabel: label,
-        });
+        const fields = {
+          [FIELDS.benchmarkResults.logEntry]: label,
+          [FIELDS.benchmarkResults.player]: [playerId],
+          [FIELDS.benchmarkResults.test]: [state.testId],
+          [FIELDS.benchmarkResults.date]: state.date,
+          [FIELDS.benchmarkResults.resultValue]: value,
+          [FIELDS.benchmarkResults.notes]: state.notes,
+        };
+
+        if (editingLocalId) {
+          const ok = await updateExistingRecord({ localId: editingLocalId, tableId: TABLES.benchmarkResults.id }, fields);
+          if (!ok) {
+            toast("Couldn't find that entry to update — try refreshing", 'warn');
+            return;
+          }
+          LastSaved.set('benchmark', playerId, { localId: editingLocalId, tableId: TABLES.benchmarkResults.id, fields, screenLabel: label, savedAt: new Date().toISOString() });
+          toast('Entry updated');
+        } else {
+          const localId = uuid();
+          Queue.add({
+            localId,
+            tableId: TABLES.benchmarkResults.id,
+            fields,
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+            screenLabel: label,
+          });
+          LastSaved.set('benchmark', playerId, { localId, tableId: TABLES.benchmarkResults.id, fields, screenLabel: label, savedAt: new Date().toISOString() });
+          Sync.flush();
+          toast('Benchmark saved — syncing');
+        }
         LastEntry.set('benchmark', playerId, { testId: state.testId, resultValue: state.resultValue });
-        Sync.flush();
-        toast('Benchmark saved — syncing');
         BenchmarkScreen.render(container);
       }));
     }
