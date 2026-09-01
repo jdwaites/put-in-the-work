@@ -105,6 +105,43 @@ const ShootingScreen = {
     let confirmRemovePlayerId = null; // player id mid "Confirm?" tap for tab removal
     let showAllMakesConfirm = false; // interrupt-once panel before submitting an all-makes session
     let editLastShot = null; // { lastSaved, spotId, moveId, moveDetail, attempts, makes, misses } or null
+    let lastTimeCache = {}; // playerId -> Map(spotId -> most-recent session's {makes, misses, date})
+    let lastTimeFetching = new Set();
+
+    // Powers the inline "Last time here: 6/10" hint in renderRow. Fetched
+    // once per active player and cached — renderBody() calls this on every
+    // render, but it no-ops once cached (or already in flight).
+    function ensureLastTimeData(playerId) {
+      if (lastTimeCache[playerId] || lastTimeFetching.has(playerId)) return;
+      if (!Settings.hasToken() || !navigator.onLine) return;
+      lastTimeFetching.add(playerId);
+      fetchPlayerShotSpotResults(playerId)
+        .then((results) => {
+          const bySpotSession = new Map();
+          results.forEach((r) => {
+            if (!r.spotId || !r.sessionId) return;
+            const key = `${r.spotId}::${r.sessionId}`;
+            const g = bySpotSession.get(key) || { spotId: r.spotId, date: r.date, makes: 0, misses: 0 };
+            g.makes += r.makes;
+            g.misses += r.misses;
+            if (r.date && r.date > g.date) g.date = r.date;
+            bySpotSession.set(key, g);
+          });
+          const latestBySpot = new Map();
+          bySpotSession.forEach((g) => {
+            const existing = latestBySpot.get(g.spotId);
+            if (!existing || g.date > existing.date) latestBySpot.set(g.spotId, g);
+          });
+          lastTimeCache[playerId] = latestBySpot;
+        })
+        .catch(() => {
+          lastTimeCache[playerId] = new Map(); // fail silently — the hint just won't show, not a critical path
+        })
+        .finally(() => {
+          lastTimeFetching.delete(playerId);
+          renderBody();
+        });
+    }
 
     const coState = ShootingDrafts.get();
     // Drafts saved before the Attempts stepper existed have no `.attempts` —
@@ -279,6 +316,11 @@ const ShootingScreen = {
         } }, '✕'),
       ]));
       rowWrap.appendChild(fieldRow('Spot', spotSelect));
+      const lastTimeMap = lastTimeCache[coState.currentActivePlayerId];
+      const lastTimeGroup = lastTimeMap && row.spotId ? lastTimeMap.get(row.spotId) : null;
+      if (lastTimeGroup) {
+        rowWrap.appendChild(h('div', { class: 'last-time-hint', text: `Last time here: ${lastTimeGroup.makes}/${lastTimeGroup.makes + lastTimeGroup.misses}` }));
+      }
       rowWrap.appendChild(fieldRow('Move', moveSelect));
       rowWrap.appendChild(fieldRow('Move Detail', detailInput));
       rowWrap.appendChild(fieldRow('Attempts' + (row.targetMakes ? ` (target: ${row.targetMakes})` : ''), attemptsStep));
@@ -378,6 +420,7 @@ const ShootingScreen = {
       body.innerHTML = '';
       const player = PLAYERS.find((p) => p.id === coState.currentActivePlayerId);
       const draft = currentDraft();
+      ensureLastTimeData(player.id);
 
       body.appendChild(h('h3', { class: 'section-heading', text: `${player.name}'s entry` }));
 

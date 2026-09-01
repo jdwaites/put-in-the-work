@@ -106,6 +106,7 @@ html, body {
   margin-bottom: 8px;
 }
 .spot-entry-title { font-weight: 700; color: var(--text-dim); font-size: 13px; text-transform: uppercase; letter-spacing: 0.03em; }
+.last-time-hint { font-size: 12px; color: var(--text-dim); margin: -10px 0 12px; }
 
 /* Header */
 .screen-header {
