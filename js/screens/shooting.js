@@ -105,6 +105,14 @@ const ShootingScreen = {
     let confirmRemovePlayerId = null; // player id mid "Confirm?" tap for tab removal
 
     const coState = ShootingDrafts.get();
+    // Drafts saved before the Attempts stepper existed have no `.attempts` —
+    // backfill it once so old in-progress drafts don't silently allow
+    // makes > attempts the first time they're reopened.
+    Object.values(coState.drafts).forEach((draft) => {
+      (draft.rows || []).forEach((row) => {
+        if (row.attempts === undefined) row.attempts = (row.makes || 0) + (row.misses || 0);
+      });
+    });
     const eligible = eligiblePlayers();
 
     if (coState.activePlayers.length === 0) {
@@ -234,8 +242,31 @@ const ShootingScreen = {
         oninput: (e) => { row.moveDetail = e.target.value; persist(); },
       });
 
-      const makesStep = stepper(row.makes, { min: 0, max: 99, label: 'makes' }, (v) => { row.makes = v; persist(); });
-      const missesStep = stepper(row.misses, { min: 0, max: 99, label: 'misses' }, (v) => { row.misses = v; persist(); });
+      const missesDisplay = h('div', { class: 'stepper-value', text: String(row.misses) });
+      const missesWrap = h('div', { class: 'stepper stepper-readonly' }, [missesDisplay]);
+
+      // Makes can never exceed Attempts — clamp instead of independently
+      // capping at an arbitrary ceiling, since an attempt that isn't a make
+      // must show up as a miss (the real bug this fixes: misses silently
+      // left at 0 made a session look like 100% makes).
+      const makesStep = stepper(row.makes, { min: 0, max: 99, label: 'makes' }, (v) => {
+        const clamped = Math.min(v, row.attempts);
+        if (clamped !== v) { makesStep.setValue(clamped); return; }
+        row.makes = clamped;
+        row.misses = Math.max(0, row.attempts - row.makes);
+        missesDisplay.textContent = String(row.misses);
+        persist();
+      });
+      const attemptsStep = stepper(row.attempts, { min: 0, max: 99, label: 'attempts' }, (v) => {
+        row.attempts = v;
+        if (row.makes > v) {
+          makesStep.setValue(v); // clamps makes down and recomputes misses
+        } else {
+          row.misses = Math.max(0, row.attempts - row.makes);
+          missesDisplay.textContent = String(row.misses);
+        }
+        persist();
+      });
 
       rowWrap.appendChild(h('div', { class: 'spot-entry-header' }, [
         h('div', { class: 'spot-entry-title', text: `Spot ${idx + 1}` }),
@@ -248,8 +279,9 @@ const ShootingScreen = {
       rowWrap.appendChild(fieldRow('Spot', spotSelect));
       rowWrap.appendChild(fieldRow('Move', moveSelect));
       rowWrap.appendChild(fieldRow('Move Detail', detailInput));
-      rowWrap.appendChild(fieldRow('Makes' + (row.targetMakes ? ` (target: ${row.targetMakes})` : ''), makesStep));
-      rowWrap.appendChild(fieldRow('Misses', missesStep));
+      rowWrap.appendChild(fieldRow('Attempts' + (row.targetMakes ? ` (target: ${row.targetMakes})` : ''), attemptsStep));
+      rowWrap.appendChild(fieldRow('Makes', makesStep));
+      rowWrap.appendChild(fieldRow('Misses', missesWrap));
       return rowWrap;
     }
 
@@ -307,6 +339,9 @@ const ShootingScreen = {
           // perfectly, rather than tapping "+" up from zero every time.
           // Driven entirely by each step's own Target Makes, so this works
           // the same way for any routine, not just the two seeded today.
+          // Attempts defaults to the same target — a perfect run is assumed,
+          // same as Makes always has been.
+          attempts: step.targetMakes || 0,
           makes: step.targetMakes || 0,
           misses: 0,
           targetMakes: step.targetMakes || null,
@@ -375,7 +410,7 @@ const ShootingScreen = {
       draft.rows.forEach((row, idx) => body.appendChild(renderRow(row, idx)));
 
       body.appendChild(secondaryButton('+ Add spot', () => {
-        draft.rows.push({ spotId: SPOTS[0].id, moveId: '', moveDetail: '', makes: 0, misses: 0, targetMakes: null });
+        draft.rows.push({ spotId: SPOTS[0].id, moveId: '', moveDetail: '', attempts: 0, makes: 0, misses: 0, targetMakes: null });
         persist();
         renderBody();
       }));
