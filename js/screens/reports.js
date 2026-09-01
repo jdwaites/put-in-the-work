@@ -4,6 +4,8 @@
 // from data already in Airtable, no external charting service.
 
 const MIN_ATTEMPTS_FOR_PR = 5; // avoid small-sample noise on a single spot
+const SUGGESTED_FOCUS_MIN_SESSIONS = 3; // avoid suggesting a focus off 1-2 data points
+const SUGGESTED_FOCUS_DECLINE_THRESHOLD = 10; // percentage points; tunable
 
 const ReportsScreen = {
   render(container) {
@@ -33,6 +35,7 @@ const ReportsScreen = {
         body.innerHTML = '';
         renderPersonalRecords(body, player, screens, data);
         renderTrendGraphs(body, player, screens, data);
+        renderSuggestedFocus(body, player, screens, data);
       })
       .catch((e) => {
         body.innerHTML = '';
@@ -219,4 +222,60 @@ function renderTrendGraphs(body, player, screens, data) {
   if (!renderedAny) {
     body.appendChild(h('div', { class: 'queue-empty', text: 'No history yet — trends will show up here after a few sessions.' }));
   }
+}
+
+// Rule-based, not AI-generated — pure threshold logic against existing
+// data, consistent with the rest of this page. For each spot with enough
+// history, compares two signals: how far below the player's own overall
+// average that spot sits, and whether it's trending down recently. Whichever
+// is more extreme wins; a tie favors the declining-trend signal as the more
+// actionable of the two. Thresholds here are reasonable defaults, not
+// guaranteed-final numbers.
+function computeSuggestedFocus(shotResults) {
+  const trends = computeShotTrends(shotResults);
+  const eligibleSpots = SPOTS.filter((s) => (trends.get(s.id) || []).length >= SUGGESTED_FOCUS_MIN_SESSIONS);
+  if (eligibleSpots.length === 0) return null;
+
+  const allGroups = groupShotsBySpotSession(shotResults);
+  const totalMakes = allGroups.reduce((sum, g) => sum + g.makes, 0);
+  const totalAttempts = allGroups.reduce((sum, g) => sum + g.makes + g.misses, 0);
+  const overallPct = totalAttempts > 0 ? (totalMakes / totalAttempts) * 100 : 0;
+
+  let best = null;
+  eligibleSpots.forEach((spot) => {
+    const series = trends.get(spot.id);
+    const spotAvg = series.reduce((sum, e) => sum + e.pct, 0) / series.length;
+    const gap = overallPct - spotAvg; // positive = below this player's own average
+
+    const last = series[series.length - 1].pct;
+    const priorSlice = series.slice(Math.max(0, series.length - 4), series.length - 1); // up to 3 sessions before last
+    const priorAvg = priorSlice.length > 0 ? priorSlice.reduce((sum, e) => sum + e.pct, 0) / priorSlice.length : last;
+    const decline = priorAvg - last; // positive = trending down
+
+    const isDeclining = decline >= SUGGESTED_FOCUS_DECLINE_THRESHOLD && decline >= gap;
+    const candidate = {
+      spot,
+      score: isDeclining ? decline : gap,
+      detail: isDeclining
+        ? `Trending down — ${Math.round(last)}% last time vs ${Math.round(priorAvg)}% average before that.`
+        : `${Math.round(spotAvg)}% average here vs ${Math.round(overallPct)}% overall.`,
+    };
+    if (candidate.score > 0 && (!best || candidate.score > best.score)) best = candidate;
+  });
+
+  return best;
+}
+
+function renderSuggestedFocus(body, player, screens, data) {
+  if (!screens.includes('shooting')) return;
+  body.appendChild(h('h3', { class: 'section-heading', text: 'Suggested Next Practice Focus' }));
+  const suggestion = computeSuggestedFocus(data.shotResults);
+  if (!suggestion) {
+    body.appendChild(h('div', { class: 'queue-empty', text: `Need at least ${SUGGESTED_FOCUS_MIN_SESSIONS} sessions at a spot before a suggestion shows up here.` }));
+    return;
+  }
+  body.appendChild(h('div', { class: 'age-hint' }, [
+    h('div', { text: `🎯 ${suggestion.spot.name}` }),
+    h('div', { text: suggestion.detail }),
+  ]));
 }
