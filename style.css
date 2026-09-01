@@ -337,6 +337,16 @@ html, body {
 
 /* Reports trend charts */
 .trend-chart { display: block; margin-top: 6px; }
+.session-summary-preview {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-line;
+}
 
 /* Onboarding */
 .onboarding-checkbox-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }

@@ -36,6 +36,7 @@ const ReportsScreen = {
         renderPersonalRecords(body, player, screens, data);
         renderTrendGraphs(body, player, screens, data);
         renderSuggestedFocus(body, player, screens, data);
+        renderSessionSummaryCard(body, player, screens, data);
       })
       .catch((e) => {
         body.innerHTML = '';
@@ -278,4 +279,108 @@ function renderSuggestedFocus(body, player, screens, data) {
     h('div', { text: `🎯 ${suggestion.spot.name}` }),
     h('div', { text: suggestion.detail }),
   ]));
+}
+
+function latestSessionId(shotResults) {
+  let latest = null;
+  shotResults.forEach((r) => {
+    if (!r.sessionId || !r.date) return;
+    if (!latest || r.date > latest.date) latest = { sessionId: r.sessionId, date: r.date };
+  });
+  return latest ? latest.sessionId : null;
+}
+
+// date/overall%/best-worst spot are all derivable from the same joined shot
+// data already used above — no new field needed on Shooting Sessions.
+function computeSessionSummary(shotResults, sessionId) {
+  const rows = shotResults.filter((r) => r.sessionId === sessionId);
+  if (rows.length === 0) return null;
+
+  const bySpot = new Map();
+  rows.forEach((r) => {
+    if (!r.spotId) return;
+    const g = bySpot.get(r.spotId) || { spotId: r.spotId, makes: 0, misses: 0 };
+    g.makes += r.makes;
+    g.misses += r.misses;
+    bySpot.set(r.spotId, g);
+  });
+  const spotStats = Array.from(bySpot.values()).map((g) => ({
+    spotId: g.spotId,
+    pct: (g.makes / (g.makes + g.misses || 1)) * 100,
+  }));
+
+  let best = null;
+  let worst = null;
+  spotStats.forEach((s) => {
+    if (!best || s.pct > best.pct) best = s;
+    if (!worst || s.pct < worst.pct) worst = s;
+  });
+
+  const totalMakes = rows.reduce((sum, r) => sum + r.makes, 0);
+  const totalMisses = rows.reduce((sum, r) => sum + r.misses, 0);
+
+  return {
+    date: rows[0].date,
+    totalMakes,
+    totalMisses,
+    overallPct: (totalMakes / (totalMakes + totalMisses || 1)) * 100,
+    best: best ? { spot: SPOTS.find((s) => s.id === best.spotId), pct: best.pct } : null,
+    worst: worst ? { spot: SPOTS.find((s) => s.id === worst.spotId), pct: worst.pct } : null,
+  };
+}
+
+function sessionSummaryText(player, summary) {
+  const lines = [
+    `${player.name} — Shooting Session`,
+    summary.date,
+    `Overall: ${Math.round(summary.overallPct)}% (${summary.totalMakes}/${summary.totalMakes + summary.totalMisses})`,
+  ];
+  if (summary.best) lines.push(`Best: ${summary.best.spot.name} (${Math.round(summary.best.pct)}%)`);
+  if (summary.worst) lines.push(`Focus for next time: ${summary.worst.spot.name} (${Math.round(summary.worst.pct)}%)`);
+  return lines.join('\n');
+}
+
+function renderSessionSummaryCard(body, player, screens, data) {
+  if (!screens.includes('shooting')) return;
+  body.appendChild(h('h3', { class: 'section-heading', text: 'Share Last Session' }));
+
+  const sessionId = latestSessionId(data.shotResults);
+  const summary = sessionId ? computeSessionSummary(data.shotResults, sessionId) : null;
+  if (!summary) {
+    body.appendChild(h('div', { class: 'queue-empty', text: 'No sessions yet to share.' }));
+    return;
+  }
+
+  const text = sessionSummaryText(player, summary);
+  body.appendChild(h('div', { class: 'session-summary-preview', text }));
+
+  // Text is the reliable primary path (works everywhere, satisfies the
+  // spec's "image or text block" on its own); the image path below is
+  // best-effort — Web Share API file support varies across mobile
+  // platforms in installed-PWA/standalone mode.
+  body.appendChild(secondaryButton('Copy summary as text', async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast('Copied — paste it anywhere to share');
+    } catch (e) {
+      downloadTextFile(`${player.name}-session-${summary.date}.txt`, text, 'text/plain');
+      toast('Copy failed — downloaded a text file instead');
+    }
+  }));
+
+  body.appendChild(secondaryButton('Share as image', async () => {
+    try {
+      const blob = await sessionSummaryImageBlob(player, summary);
+      const filename = `${player.name}-session-${summary.date}.png`;
+      const file = new File([blob], filename, { type: 'image/png' });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Shooting session summary' });
+      } else {
+        downloadBlob(blob, filename);
+        toast('Sharing images isn’t supported here — downloaded instead');
+      }
+    } catch (e) {
+      toast('Could not create image — try the text copy instead', 'warn');
+    }
+  }));
 }
