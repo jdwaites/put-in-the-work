@@ -197,7 +197,17 @@ function effectiveScreens(player) {
 
 const Onboarding = {
   isComplete() {
-    return localStorage.getItem(LS_KEYS.onboarded) === '1';
+    if (localStorage.getItem(LS_KEYS.onboarded) === '1') return true;
+    // Grandfather in installs that were already using the app before this
+    // flow existed — a pre-existing CurrentPlayer choice is reliable
+    // evidence of that, since every player switcher writes it on first tap.
+    // Without this, shipping onboarding would force it on this app's real,
+    // already-established family users, not just genuinely fresh installs.
+    if (localStorage.getItem(LS_KEYS.currentPlayer)) {
+      Onboarding.markComplete();
+      return true;
+    }
+    return false;
   },
   markComplete() {
     localStorage.setItem(LS_KEYS.onboarded, '1');

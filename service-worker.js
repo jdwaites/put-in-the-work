@@ -6,7 +6,7 @@
 //
 // Bump CACHE_NAME whenever the app-shell file list changes materially; the
 // activate handler deletes any previously cached version.
-const CACHE_NAME = 'put-in-the-work-v2';
+const CACHE_NAME = 'put-in-the-work-v3';
 
 const APP_SHELL = [
   './',
@@ -19,6 +19,7 @@ const APP_SHELL = [
   './js/ui.js',
   './js/recent.js',
   './js/app.js',
+  './js/screens/onboarding.js',
   './js/screens/home.js',
   './js/screens/workout.js',
   './js/screens/strength.js',

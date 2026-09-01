@@ -334,6 +334,21 @@ html, body {
   margin: 4px 0 16px;
 }
 
+/* Onboarding */
+.onboarding-checkbox-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+.onboarding-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.onboarding-checkbox-row input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); }
+
 /* Toast */
 .toast {
   position: fixed;
