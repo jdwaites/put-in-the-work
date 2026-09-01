@@ -107,6 +107,7 @@ const ShootingScreen = {
     let editLastShot = null; // { lastSaved, spotId, moveId, moveDetail, attempts, makes, misses } or null
     let lastTimeCache = {}; // playerId -> Map(spotId -> most-recent session's {makes, misses, date})
     let lastTimeFetching = new Set();
+    let savingRoutineAsNew = false; // "Save last session as a new routine" inline form open/closed
 
     // Powers the inline "Last time here: 6/10" hint in renderRow. Fetched
     // once per active player and cached — renderBody() calls this on every
@@ -369,6 +370,81 @@ const ShootingScreen = {
       return wrap;
     }
 
+    // Turns the last submitted session's rows into a brand-new named
+    // Routine in Shot Routine Steps — the same live-fetched table the
+    // Routine dropdown above already reads from, so this needs no schema
+    // change and the new routine is immediately reusable. Target Makes on
+    // each new step is the player's actual makes from that session (the
+    // "customized" version), not whatever routine (if any) they started
+    // from originally.
+    function renderSaveRoutinePanel(lastShootingEntry) {
+      const wrap = h('div', { class: 'inline-add-form' });
+      const state = { name: '' };
+      const nameInput = h('input', {
+        class: 'text-input',
+        placeholder: 'Routine name (e.g. "Jumpshot multiple reps")',
+        oninput: (e) => { state.name = e.target.value; },
+      });
+      wrap.appendChild(fieldRow('New routine name', nameInput));
+      wrap.appendChild(secondaryButton('Save routine', () => {
+        const name = state.name.trim();
+        if (!name) {
+          toast('Give the routine a name', 'warn');
+          return;
+        }
+        if (routinesByName[name]) {
+          toast(`A routine named "${name}" already exists — pick a different name`, 'warn');
+          return;
+        }
+        const items = lastShootingEntry.rows.map((row, idx) => {
+          const move = moves.find((m) => m.id === row.moveId);
+          const dependsOn = [];
+          const fields = {
+            [FIELDS.shotRoutineSteps.routineName]: name,
+            [FIELDS.shotRoutineSteps.order]: idx + 1,
+            [FIELDS.shotRoutineSteps.spot]: [row.spotId],
+            [FIELDS.shotRoutineSteps.targetMakes]: row.makes,
+          };
+          if (row.moveDetail) fields[FIELDS.shotRoutineSteps.stepDetail] = row.moveDetail;
+          if (row.moveId) {
+            if (move && move.isLocal) {
+              dependsOn.push({ localId: row.moveId, linkField: FIELDS.shotRoutineSteps.move });
+            } else {
+              fields[FIELDS.shotRoutineSteps.move] = [row.moveId];
+            }
+          }
+          return {
+            localId: uuid(),
+            tableId: TABLES.shotRoutineSteps.id,
+            fields,
+            dependsOn,
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+            screenLabel: `Routine step: ${name} #${idx + 1}`,
+          };
+        });
+        Queue.addMany(items);
+        // Reflect it locally right away so it's pickable in the Routine
+        // dropdown without leaving and re-entering this screen.
+        routinesByName[name] = lastShootingEntry.rows.map((row, idx) => ({
+          order: idx + 1,
+          spotId: row.spotId,
+          moveId: row.moveId,
+          targetMakes: row.makes,
+          detail: row.moveDetail || '',
+        }));
+        savingRoutineAsNew = false;
+        Sync.flush();
+        toast(`Routine "${name}" saved — syncing`);
+        renderBody();
+      }));
+      wrap.appendChild(secondaryButton('Cancel', () => {
+        savingRoutineAsNew = false;
+        renderBody();
+      }));
+      return wrap;
+    }
+
     function populateDraftFromRoutine(draft, routineName) {
       draft.routineName = routineName;
       if (routineName && routinesByName[routineName]) {
@@ -449,6 +525,14 @@ const ShootingScreen = {
           persist();
           renderBody();
         }));
+        if (savingRoutineAsNew) {
+          body.appendChild(renderSaveRoutinePanel(lastShootingEntry));
+        } else {
+          body.appendChild(secondaryButton('💾 Save last session as a new routine', () => {
+            savingRoutineAsNew = true;
+            renderBody();
+          }));
+        }
       }
       body.appendChild(fieldRow('Intensity (1–4)', intensityTap));
       body.appendChild(fieldRow('Performance Grade (1–4)', gradeTap));
