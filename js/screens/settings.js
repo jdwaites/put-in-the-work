@@ -1,3 +1,62 @@
+// A fixed set of starter Workout Templates from a specific workout plan the
+// user provided — deliberately not labeled by day (push/pull/upper/lower
+// splits at two rep ranges, each row of the original plan combined into
+// one template), named by rep range and role instead. Returns the number
+// actually added (skips any name that's already a live Workout Template,
+// so re-running this is safe).
+const STARTER_WORKOUT_TEMPLATES = [
+  {
+    name: 'Heavy Push/Pull A (4-6 reps)',
+    description: 'Barbell Bench Press — 4-6 reps x 3 hard sets\nDeadlift — 4-6 reps x 3 hard sets\nMilitary Press — 4-6 reps x 3 hard sets\nBarbell Squat — 4-6 reps x 3 hard sets',
+  },
+  {
+    name: 'Heavy Push/Pull B (4-6 reps)',
+    description: 'Incline Barbell Bench — 4-6 reps x 3 hard sets\nOne Arm Dumbbell Row — 4-6 reps x 3 hard sets\nSeated Cable Row — 4-6 reps x 3 hard sets\nLeg Curl — 4-6 reps x 3 hard sets',
+  },
+  {
+    name: 'Moderate Push/Pull A (6-8 reps)',
+    description: 'Dumbbell Bench — 6-8 reps x 3 hard sets\nLat Pulldown — 6-8 reps x 3 hard sets\nClose Grip Bench Press — 6-8 reps x 3 hard sets\nLeg Press — 6-8 reps x 3 hard sets',
+  },
+  {
+    name: 'Moderate Push/Pull B (6-8 reps)',
+    description: 'Triceps Pushdown — 6-8 reps x 3 hard sets\nAlternating Dumbbell Curl — 6-8 reps x 3 hard sets\nDumbbell Rear Lateral Raise — 6-8 reps x 3 hard sets\nDumbbell Lunge Walking in Place — 6-8 reps x 3 hard sets',
+  },
+  {
+    name: 'Bodyweight & Carries Finisher',
+    description: 'Bar Dip\nPull-Up/Chin Up\nTurkish Get Up\nFarmers Walk\nWeighted Stepup',
+  },
+];
+
+async function importStarterWorkoutTemplates() {
+  if (!Settings.hasToken()) throw new Error('add your Airtable token first');
+  if (!navigator.onLine) throw new Error('offline — connect and try again');
+
+  let existingNames = new Set();
+  try {
+    const data = await airtableGet(TABLES.workoutTemplates.id, { pageSize: '100' });
+    existingNames = new Set(data.records.map((r) => r.fields[FIELDS.workoutTemplates.name]).filter(Boolean));
+  } catch (e) {
+    // If the existence check itself fails, fall through and create
+    // everything — worst case a rare duplicate, not worth blocking on.
+  }
+
+  let added = 0;
+  STARTER_WORKOUT_TEMPLATES.forEach((t) => {
+    if (existingNames.has(t.name)) return;
+    Queue.add({
+      localId: uuid(),
+      tableId: TABLES.workoutTemplates.id,
+      fields: { [FIELDS.workoutTemplates.name]: t.name, [FIELDS.workoutTemplates.description]: t.description },
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      screenLabel: `Workout type: ${t.name}`,
+    });
+    added += 1;
+  });
+  if (added > 0) Sync.flush();
+  return added;
+}
+
 const SettingsScreen = {
   render(container) {
     container.innerHTML = '';
@@ -37,8 +96,34 @@ const SettingsScreen = {
         SettingsScreen.queueDetail(),
         h('div', { class: 'divider' }),
         SettingsScreen.backupSection(),
+        h('div', { class: 'divider' }),
+        SettingsScreen.starterContentSection(),
       ])
     );
+  },
+
+  // One-tap import for a fixed set of starter Workout Templates — added on
+  // request from a specific workout plan, not a general "template library"
+  // feature. Skips any name that already exists in Workout Templates so
+  // tapping it twice doesn't create duplicates.
+  starterContentSection() {
+    const status = h('div', { class: 'settings-status' });
+    return h('div', {}, [
+      h('h3', { text: 'Starter Content' }),
+      h('p', { class: 'settings-hint', text: 'Adds 5 preset Workout Templates (push/pull/upper/lower splits at two rep ranges, plus a bodyweight & carries finisher) as reusable Workout Types — none are tied to a specific day.' }),
+      secondaryButton('Import starter workout templates', async () => {
+        status.textContent = 'Checking existing templates…';
+        try {
+          const added = await importStarterWorkoutTemplates();
+          status.textContent = added > 0
+            ? `${added} template${added === 1 ? '' : 's'} added — syncing`
+            : 'All 5 starter templates already exist';
+        } catch (e) {
+          status.textContent = `Import failed: ${e.message}`;
+        }
+      }),
+      status,
+    ]);
   },
 
   backupSection() {
