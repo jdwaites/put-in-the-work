@@ -664,6 +664,7 @@ const ShootingScreen = {
           screenLabel: sessionLabel,
         });
 
+        const trackedRows = [];
         draft.rows.forEach((row, rowIdx) => {
           const spot = SPOTS.find((s) => s.id === row.spotId);
           const move = moves.find((m) => m.id === row.moveId);
@@ -693,9 +694,12 @@ const ShootingScreen = {
             screenLabel: `${spot ? spot.name : 'Spot'} (${player.name} session)`,
           });
           totalSpots += 1;
-          // "Edit last entry" for Shooting is scoped to the single most
-          // recent Shot Spot Result row, not the whole multi-child session
-          // (which would need a mix of PATCH+POST+DELETE to reconcile).
+          trackedRows.push({ localId: resultLocalId, tableId: TABLES.shotSpotResults.id, fields });
+          // The in-flow "Edit last shot" panel on this screen stays scoped
+          // to just the single most-recent row (deliberately lightweight).
+          // The full-session editor on the Edit Last Entry screen uses the
+          // 'shootingSession' tracker set below instead, which keeps every
+          // row from this submission.
           if (rowIdx === draft.rows.length - 1) {
             LastSaved.set('shootingSpot', playerId, {
               localId: resultLocalId,
@@ -705,6 +709,12 @@ const ShootingScreen = {
               savedAt: new Date().toISOString(),
             });
           }
+        });
+
+        LastSaved.set('shootingSession', playerId, {
+          session: { localId: sessionLocalId, tableId: TABLES.shootingSessions.id, fields: sessionFields },
+          rows: trackedRows,
+          savedAt: new Date().toISOString(),
         });
 
         LastEntry.set('shooting', playerId, { routineName: draft.routineName, rows: draft.rows });

@@ -45,7 +45,7 @@ const EditLastScreen = {
     const FORM_RENDERERS = {
       workout: renderWorkoutEditForm,
       strength: renderStrengthEditForm,
-      shooting: renderShootingEditForm,
+      shooting: renderShootingSessionEditForm,
       benchmark: renderBenchmarkEditForm,
       game: renderGameEditForm,
     };
@@ -324,28 +324,95 @@ function renderGameEditForm(host, player) {
   stripeFieldRows(host);
 }
 
-// Needs Move Definitions fetched live (fetchMoves/mergeMoves are top-level
-// globals in shooting.js, loaded before this file — see index.html order).
-function renderShootingEditForm(host, player) {
+// Edits the player's whole last Shooting session — every Shot Spot Result
+// row, not just one — plus the session's own date/intensity/grade/comments.
+// Reconciles on save: existing rows still present get PATCHed, rows the
+// user removed get deleted, and any newly-added rows get created (POSTed,
+// linked to the existing session via dependsOn the same way a fresh
+// session's rows are). Needs Move Definitions fetched live (fetchMoves/
+// mergeMoves are top-level globals in shooting.js, loaded before this file
+// — see index.html order).
+function renderShootingSessionEditForm(host, player) {
   host.innerHTML = '';
   const playerId = player.id;
-  const lastSaved = LastSaved.get('shootingSpot', playerId);
-  if (!lastSaved) {
-    host.appendChild(h('div', { class: 'queue-empty', text: `No Shooting entry to edit yet for ${player.name}.` }));
+  const lastSession = LastSaved.get('shootingSession', playerId);
+  if (!lastSession) {
+    host.appendChild(h('div', { class: 'queue-empty', text: `No Shooting session to edit yet for ${player.name}.` }));
     return;
   }
-  const f = lastSaved.fields;
-  const makes = f[FIELDS.shotSpotResults.makes] || 0;
-  const misses = f[FIELDS.shotSpotResults.misses] || 0;
-  const state = {
-    spotId: (f[FIELDS.shotSpotResults.spot] || [])[0] || SPOTS[0].id,
-    moveId: (f[FIELDS.shotSpotResults.move] || [])[0] || '',
-    moveDetail: f[FIELDS.shotSpotResults.moveDetail] || '',
-    attempts: makes + misses,
-    makes,
-    misses,
+
+  const sf = lastSession.session.fields;
+  const sessionState = {
+    date: sf[FIELDS.shootingSessions.date] || todayISO(),
+    intensity: sf[FIELDS.shootingSessions.intensity] || '2',
+    grade: sf[FIELDS.shootingSessions.grade] || '2',
+    comments: sf[FIELDS.shootingSessions.comments] || '',
   };
+  // Working row list — existingLocalId/existingTableId are null for a row
+  // added during this edit (POST on save); set for a row that was already
+  // saved (PATCH on save, or delete if removed from this list before save).
+  let rows = lastSession.rows.map((r) => {
+    const makes = r.fields[FIELDS.shotSpotResults.makes] || 0;
+    const misses = r.fields[FIELDS.shotSpotResults.misses] || 0;
+    return {
+      existingLocalId: r.localId,
+      existingTableId: r.tableId,
+      spotId: (r.fields[FIELDS.shotSpotResults.spot] || [])[0] || SPOTS[0].id,
+      moveId: (r.fields[FIELDS.shotSpotResults.move] || [])[0] || '',
+      moveDetail: r.fields[FIELDS.shotSpotResults.moveDetail] || '',
+      attempts: makes + misses,
+      makes,
+      misses,
+    };
+  });
+  const removedExistingRows = []; // {localId, tableId} pulled out of `rows` on remove, deleted on save
   let moves = mergeMoves([]); // instant, seeded + pending, refined once the live fetch resolves
+
+  function renderRow(row, idx) {
+    const rowWrap = h('div', { class: 'spot-entry-row' + (idx % 2 === 1 ? ' spot-entry-row-alt' : '') });
+
+    const spotSelect = selectEl(SPOTS.map((s) => ({ value: s.id, label: s.name })), row.spotId, (v) => (row.spotId = v));
+    const moveOptions = [{ value: '', label: 'Select a move…' }, ...moves.map((m) => ({ value: m.id, label: m.name }))];
+    const moveSelect = selectEl(moveOptions, row.moveId || '', (v) => (row.moveId = v));
+    const detailInput = h('input', {
+      class: 'text-input', placeholder: 'Move detail (optional)', value: row.moveDetail,
+      oninput: (e) => (row.moveDetail = e.target.value),
+    });
+
+    const missesDisplay = h('div', { class: 'stepper-value', text: String(row.misses) });
+    const missesWrap = h('div', { class: 'stepper stepper-readonly' }, [missesDisplay]);
+    const makesStep = stepper(row.makes, { min: 0, max: 99, label: 'makes' }, (v) => {
+      const clamped = Math.min(v, row.attempts);
+      if (clamped !== v) { makesStep.setValue(clamped); return; }
+      row.makes = clamped;
+      row.misses = Math.max(0, row.attempts - row.makes);
+      missesDisplay.textContent = String(row.misses);
+    });
+    const attemptsStep = stepper(row.attempts, { min: 0, max: 99, label: 'attempts' }, (v) => {
+      row.attempts = v;
+      if (row.makes > v) {
+        makesStep.setValue(v);
+      } else {
+        row.misses = Math.max(0, row.attempts - row.makes);
+        missesDisplay.textContent = String(row.misses);
+      }
+    });
+
+    rowWrap.appendChild(h('div', { class: 'spot-entry-header' }, [
+      h('div', { class: 'spot-entry-title', text: `Spot ${idx + 1}` }),
+      h('button', { class: 'btn-remove', type: 'button', 'aria-label': 'Remove this spot', onclick: () => {
+        if (row.existingLocalId) removedExistingRows.push({ localId: row.existingLocalId, tableId: row.existingTableId });
+        rows.splice(idx, 1);
+        renderFields(null);
+      } }, '✕'),
+    ]));
+    rowWrap.appendChild(fieldRow('Spot', spotSelect));
+    rowWrap.appendChild(fieldRow('Move', moveSelect));
+    rowWrap.appendChild(fieldRow('Move Detail', detailInput));
+    rowWrap.appendChild(pairedFieldRow('Attempts', attemptsStep, 'Makes', makesStep));
+    rowWrap.appendChild(fieldRow('Misses', missesWrap));
+    return rowWrap;
+  }
 
   function renderFields(movesError) {
     host.innerHTML = '';
@@ -353,67 +420,103 @@ function renderShootingEditForm(host, player) {
       host.appendChild(h('div', { class: 'fetch-error', text: `Couldn't load moves from Airtable: ${movesError} — check your token's table access in Settings.` }));
     }
 
-    const spotSelect = selectEl(SPOTS.map((s) => ({ value: s.id, label: s.name })), state.spotId, (v) => (state.spotId = v));
-    const moveOptions = [{ value: '', label: 'Select a move…' }, ...moves.map((m) => ({ value: m.id, label: m.name }))];
-    const moveSelect = selectEl(moveOptions, state.moveId || '', (v) => (state.moveId = v));
-    const detailInput = h('input', {
-      class: 'text-input', placeholder: 'Move detail (optional)', value: state.moveDetail,
-      oninput: (e) => (state.moveDetail = e.target.value),
-    });
+    const dateInput = h('input', { class: 'text-input', type: 'date', value: sessionState.date, onchange: (e) => (sessionState.date = e.target.value) });
+    const intensityTap = tapSelect(CHOICES.rating4.map((n) => ({ value: n, label: n })), sessionState.intensity, (v) => (sessionState.intensity = v));
+    const gradeTap = tapSelect(CHOICES.rating4.map((n) => ({ value: n, label: n })), sessionState.grade, (v) => (sessionState.grade = v));
+    const commentsArea = textArea('Session notes (optional)…', sessionState.comments, (v) => (sessionState.comments = v));
 
-    const missesDisplay = h('div', { class: 'stepper-value', text: String(state.misses) });
-    const missesWrap = h('div', { class: 'stepper stepper-readonly' }, [missesDisplay]);
-    const makesStep = stepper(state.makes, { min: 0, max: 99, label: 'makes' }, (v) => {
-      const clamped = Math.min(v, state.attempts);
-      if (clamped !== v) { makesStep.setValue(clamped); return; }
-      state.makes = clamped;
-      state.misses = Math.max(0, state.attempts - state.makes);
-      missesDisplay.textContent = String(state.misses);
-    });
-    const attemptsStep = stepper(state.attempts, { min: 0, max: 99, label: 'attempts' }, (v) => {
-      state.attempts = v;
-      if (state.makes > v) {
-        makesStep.setValue(v);
-      } else {
-        state.misses = Math.max(0, state.attempts - state.makes);
-        missesDisplay.textContent = String(state.misses);
-      }
-    });
+    host.appendChild(fieldRow('Date', dateInput));
+    host.appendChild(fieldRow('Intensity (1–4)', intensityTap));
+    host.appendChild(fieldRow('Performance Grade (1–4)', gradeTap));
+    host.appendChild(fieldRow('Comments', commentsArea));
 
-    host.appendChild(fieldRow('Spot', spotSelect));
-    host.appendChild(fieldRow('Move', moveSelect));
-    host.appendChild(fieldRow('Move Detail', detailInput));
-    host.appendChild(pairedFieldRow('Attempts', attemptsStep, 'Makes', makesStep));
-    host.appendChild(fieldRow('Misses', missesWrap));
+    host.appendChild(h('h3', { class: 'section-heading', text: 'Shots' }));
+    if (rows.length === 0) {
+      host.appendChild(h('div', { class: 'queue-empty', text: 'No spots left — add one below, or leave empty to remove them all from this session.' }));
+    }
+    rows.forEach((row, idx) => host.appendChild(renderRow(row, idx)));
 
-    host.appendChild(primaryButton('Update Entry', async () => {
-      const spot = SPOTS.find((s) => s.id === state.spotId);
-      const move = moves.find((m) => m.id === state.moveId);
-      const fields = {
-        [FIELDS.shotSpotResults.logEntry]: `${spot ? spot.name : 'Spot'} – ${move ? move.name.replace(' (syncing…)', '') : 'Move'} – ${state.makes}/${state.makes + state.misses}`,
-        [FIELDS.shotSpotResults.spot]: [state.spotId],
-        [FIELDS.shotSpotResults.makes]: state.makes,
-        [FIELDS.shotSpotResults.misses]: state.misses,
-      };
-      if (state.moveDetail) fields[FIELDS.shotSpotResults.moveDetail] = state.moveDetail;
-      // A brand-new, still-unsynced move can't be relinked via PATCH — same
-      // limitation as the in-flow Shooting editor and Workout's template.
-      if (state.moveId && move && !move.isLocal) fields[FIELDS.shotSpotResults.move] = [state.moveId];
+    host.appendChild(secondaryButton('+ Add spot', () => {
+      rows.push({ existingLocalId: null, existingTableId: null, spotId: SPOTS[0].id, moveId: '', moveDetail: '', attempts: 0, makes: 0, misses: 0 });
+      renderFields(movesError);
+    }));
 
-      const ok = await updateExistingRecord({ localId: lastSaved.localId, tableId: TABLES.shotSpotResults.id }, fields);
-      if (!ok) {
-        toast("Couldn't find that entry to update — try refreshing", 'warn');
+    host.appendChild(primaryButton('Update Session', async () => {
+      const sessionOk = await updateExistingRecord(
+        { localId: lastSession.session.localId, tableId: lastSession.session.tableId },
+        {
+          [FIELDS.shootingSessions.date]: sessionState.date,
+          [FIELDS.shootingSessions.intensity]: sessionState.intensity,
+          [FIELDS.shootingSessions.grade]: sessionState.grade,
+          [FIELDS.shootingSessions.comments]: sessionState.comments,
+        }
+      );
+      if (!sessionOk) {
+        toast("Couldn't find that session to update — try refreshing", 'warn');
         return;
       }
-      LastSaved.set('shootingSpot', playerId, {
-        localId: lastSaved.localId,
-        tableId: TABLES.shotSpotResults.id,
-        fields,
-        screenLabel: fields[FIELDS.shotSpotResults.logEntry],
+
+      for (const removed of removedExistingRows) {
+        const resolvedId = ResolvedIds.get(removed.localId);
+        if (resolvedId) {
+          await airtableDeleteOne(removed.tableId, resolvedId);
+        } else {
+          Queue.remove(removed.localId);
+        }
+      }
+
+      const newTrackedRows = [];
+      for (const row of rows) {
+        const spot = SPOTS.find((s) => s.id === row.spotId);
+        const move = moves.find((m) => m.id === row.moveId);
+        const fields = {
+          [FIELDS.shotSpotResults.logEntry]: `${spot ? spot.name : 'Spot'} – ${move ? move.name.replace(' (syncing…)', '') : 'Move'} – ${row.makes}/${row.makes + row.misses}`,
+          [FIELDS.shotSpotResults.spot]: [row.spotId],
+          [FIELDS.shotSpotResults.makes]: row.makes,
+          [FIELDS.shotSpotResults.misses]: row.misses,
+        };
+        if (row.moveDetail) fields[FIELDS.shotSpotResults.moveDetail] = row.moveDetail;
+        // A brand-new, still-unsynced move can't be relinked via PATCH on an
+        // existing row — same limitation as the in-flow Shooting editor.
+        if (row.moveId && move && !move.isLocal) fields[FIELDS.shotSpotResults.move] = [row.moveId];
+
+        if (row.existingLocalId) {
+          await updateExistingRecord({ localId: row.existingLocalId, tableId: row.existingTableId }, fields);
+          newTrackedRows.push({ localId: row.existingLocalId, tableId: row.existingTableId, fields });
+        } else {
+          const newLocalId = uuid();
+          const dependsOn = [{ localId: lastSession.session.localId, linkField: FIELDS.shotSpotResults.session }];
+          if (row.moveId && move && move.isLocal) dependsOn.push({ localId: row.moveId, linkField: FIELDS.shotSpotResults.move });
+          Queue.add({
+            localId: newLocalId,
+            tableId: TABLES.shotSpotResults.id,
+            fields,
+            dependsOn,
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+            screenLabel: `${spot ? spot.name : 'Spot'} (${player.name} session edit)`,
+          });
+          newTrackedRows.push({ localId: newLocalId, tableId: TABLES.shotSpotResults.id, fields });
+        }
+      }
+
+      LastSaved.set('shootingSession', playerId, {
+        session: {
+          localId: lastSession.session.localId,
+          tableId: lastSession.session.tableId,
+          fields: { ...lastSession.session.fields, ...{
+            [FIELDS.shootingSessions.date]: sessionState.date,
+            [FIELDS.shootingSessions.intensity]: sessionState.intensity,
+            [FIELDS.shootingSessions.grade]: sessionState.grade,
+            [FIELDS.shootingSessions.comments]: sessionState.comments,
+          } },
+        },
+        rows: newTrackedRows,
         savedAt: new Date().toISOString(),
       });
-      toast('Shot entry updated');
-      renderShootingEditForm(host, player);
+      Sync.flush();
+      toast('Session updated');
+      renderShootingSessionEditForm(host, player);
     }));
 
     stripeFieldRows(host);
