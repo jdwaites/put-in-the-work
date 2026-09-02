@@ -433,6 +433,36 @@ const ShootingScreen = {
           renderBody();
         }));
       }
+
+      // Placed right up here, next to Repeat-last-session, rather than
+      // below the whole spot list where it was easy to miss entirely —
+      // this is the single most-recent Shot Spot Result the player saved
+      // (may be from an earlier visit), not anything in the draft below.
+      const lastShotSaved = LastSaved.get('shootingSpot', coState.currentActivePlayerId);
+      if (lastShotSaved && !editLastShot) {
+        body.appendChild(secondaryButton('✎ Edit last shot', () => {
+          const f = lastShotSaved.fields;
+          const makes = f[FIELDS.shotSpotResults.makes] || 0;
+          const misses = f[FIELDS.shotSpotResults.misses] || 0;
+          editLastShot = {
+            lastSaved: lastShotSaved,
+            spotId: (f[FIELDS.shotSpotResults.spot] || [])[0] || SPOTS[0].id,
+            moveId: (f[FIELDS.shotSpotResults.move] || [])[0] || '',
+            moveDetail: f[FIELDS.shotSpotResults.moveDetail] || '',
+            attempts: makes + misses,
+            makes,
+            misses,
+          };
+          renderBody();
+        }));
+        if (!editLastShot) {
+          body.appendChild(h('div', { class: 'last-time-hint', text: `Fixes ${lastShotSaved.screenLabel} — your most recently saved shot entry, not anything below.` }));
+        }
+      }
+      if (editLastShot) {
+        body.appendChild(renderEditLastShotPanel());
+      }
+
       body.appendChild(fieldRow('Intensity (1–4)', intensityTap));
       body.appendChild(fieldRow('Performance Grade (1–4)', gradeTap));
       body.appendChild(fieldRow('Comments', commentsArea));
@@ -451,28 +481,6 @@ const ShootingScreen = {
         persist();
         renderBody();
       }));
-
-      const lastShotSaved = LastSaved.get('shootingSpot', coState.currentActivePlayerId);
-      if (lastShotSaved && !editLastShot) {
-        body.appendChild(secondaryButton('✎ Edit last shot', () => {
-          const f = lastShotSaved.fields;
-          const makes = f[FIELDS.shotSpotResults.makes] || 0;
-          const misses = f[FIELDS.shotSpotResults.misses] || 0;
-          editLastShot = {
-            lastSaved: lastShotSaved,
-            spotId: (f[FIELDS.shotSpotResults.spot] || [])[0] || SPOTS[0].id,
-            moveId: (f[FIELDS.shotSpotResults.move] || [])[0] || '',
-            moveDetail: f[FIELDS.shotSpotResults.moveDetail] || '',
-            attempts: makes + misses,
-            makes,
-            misses,
-          };
-          renderBody();
-        }));
-      }
-      if (editLastShot) {
-        body.appendChild(renderEditLastShotPanel());
-      }
 
       body.appendChild(h('div', { class: 'divider' }));
 
