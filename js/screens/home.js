@@ -13,9 +13,12 @@ const HomeScreen = {
       { key: 'benchmark', label: 'Log Benchmark', hash: '#benchmark', icon: '📏' },
       { key: 'game', label: 'Log Game', hash: '#game', icon: '🏆' },
     ].filter((t) => effectiveScreens(player).includes(t.key));
-    // Reports is relevant to every player (including walks-only profiles
-    // with just Workout/Strength) — not gated by effectiveScreens.
+    // Reports and Edit Last Entry are relevant to every player (including
+    // walks-only profiles with just Workout/Strength) — not gated by
+    // effectiveScreens; Edit Last Entry filters its own category tabs per
+    // player internally instead.
     tiles.push({ key: 'reports', label: 'Reports', hash: '#reports', icon: '📊' });
+    tiles.push({ key: 'editLast', label: 'Edit Last Entry', hash: '#edit-last', icon: '✎' });
     const grid = h('div', { class: 'tile-grid' });
     tiles.forEach((t) => {
       grid.appendChild(

@@ -113,6 +113,8 @@ const GameScreen = {
         });
         GameScreen.render(container);
       }));
+
+      stripeFieldRows(formHost);
     }
 
     renderForm();

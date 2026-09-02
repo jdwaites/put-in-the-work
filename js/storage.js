@@ -11,6 +11,7 @@ const LS_KEYS = {
   lastSaved: 'pw_last_saved',
   recentWorkouts: 'pw_recent_workouts',
   shootingDrafts: 'pw_shooting_copractice',
+  strengthDrafts: 'pw_strength_session_drafts',
   playerScreenOverrides: 'pw_player_screen_overrides',
   onboarded: 'pw_onboarded',
 };
@@ -172,6 +173,28 @@ const ShootingDrafts = {
   },
   clear() {
     writeJSON(LS_KEYS.shootingDrafts, { activePlayers: [], currentActivePlayerId: null, drafts: {} });
+  },
+};
+
+// A batch of in-progress Strength Log rows for one player, persisted so
+// backgrounding the browser mid-workout doesn't lose a row — same
+// motivation as ShootingDrafts, just without co-practice's multi-player
+// bookkeeping (Strength Logs have no parent "session" record to link
+// through, so each row is just an independent draft entry).
+const StrengthDrafts = {
+  get(playerId) {
+    const all = readJSON(LS_KEYS.strengthDrafts, {});
+    return all[playerId] || [];
+  },
+  save(playerId, rows) {
+    const all = readJSON(LS_KEYS.strengthDrafts, {});
+    all[playerId] = rows;
+    writeJSON(LS_KEYS.strengthDrafts, all);
+  },
+  clear(playerId) {
+    const all = readJSON(LS_KEYS.strengthDrafts, {});
+    delete all[playerId];
+    writeJSON(LS_KEYS.strengthDrafts, all);
   },
 };
 

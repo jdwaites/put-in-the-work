@@ -72,11 +72,8 @@ function tapSelect(options, selectedValue, onChange, extraClass = '') {
 }
 
 // Large-tap-target numeric stepper. onChange(value) fires on every change —
-// from the -/+ buttons, from typing a number directly into the field, or
-// from a quickAdds shortcut button. quickAdds (e.g. [5, 10]) renders a row
-// of "+5"/"+10"-style buttons below the main row for quickly bumping a
-// count by a fixed chunk, like hitting a preset button on a microwave.
-function stepper(initial, { min = 0, max = 999, step = 1, label = '', quickAdds = [] } = {}, onChange) {
+// from the -/+ buttons or from typing a number directly into the field.
+function stepper(initial, { min = 0, max = 999, step = 1, label = '' } = {}, onChange) {
   let value = initial;
   const clamp = (v) => Math.min(max, Math.max(min, v));
 
@@ -107,22 +104,24 @@ function stepper(initial, { min = 0, max = 999, step = 1, label = '', quickAdds 
     if (e.key === 'Enter') input.blur();
   });
 
-  const mainRow = h('div', { class: 'stepper' }, [
+  const wrap = h('div', { class: 'stepper' }, [
     h('button', { class: 'stepper-btn', type: 'button', 'aria-label': `Decrease ${label}`, onclick: () => set(value - step) }, '−'),
     input,
     h('button', { class: 'stepper-btn', type: 'button', 'aria-label': `Increase ${label}`, onclick: () => set(value + step) }, '+'),
   ]);
-
-  let wrap = mainRow;
-  if (quickAdds.length > 0) {
-    const quickAddRow = h('div', { class: 'stepper-quickadds' }, quickAdds.map((n) =>
-      h('button', { class: 'stepper-quickadd', type: 'button', 'aria-label': `Add ${n} to ${label}`, onclick: () => set(value + n) }, `+${n}`)
-    ));
-    wrap = h('div', { class: 'stepper-group' }, [mainRow, quickAddRow]);
-  }
   wrap.getValue = () => value;
   wrap.setValue = set;
   return wrap;
+}
+
+// Two labeled controls side by side on one row — used where real estate
+// matters more than it used to (e.g. Shooting's Attempts/Makes, now that
+// direct typing means the steppers don't need full-width tap targets).
+function pairedFieldRow(labelA, controlA, labelB, controlB) {
+  return h('div', { class: 'field-row-pair' }, [
+    h('div', { class: 'field-row-pair-item' }, [h('label', { class: 'field-label', text: labelA }), controlA]),
+    h('div', { class: 'field-row-pair-item' }, [h('label', { class: 'field-label', text: labelB }), controlB]),
+  ]);
 }
 
 function fieldRow(labelText, control) {
@@ -130,6 +129,25 @@ function fieldRow(labelText, control) {
     h('label', { class: 'field-label', text: labelText }),
     control,
   ]);
+}
+
+// Alternates a background tint across every other top-level .field-row in
+// a container, purely so a long sequential form is easier to scan at a
+// glance. Call once after a form's fieldRow()s are all appended (not per
+// field) — deliberately DOM-order-based via querySelectorAll, not CSS
+// :nth-of-type, which counts by tag name among ALL sibling elements of
+// that tag, not just .field-row ones; that would silently misalign
+// whenever a non-field-row div (a fetch-error banner, an inline-add-form)
+// is interspersed. Field-rows already living inside their own bordered box
+// (an inline-add-form, Shooting's spot-entry-row) are skipped — those
+// already have their own visual separation, and stripe those containers
+// individually if they need it (see Shooting's own per-row alternating).
+function stripeFieldRows(container) {
+  const rows = Array.from(container.querySelectorAll('.field-row'))
+    .filter((el) => !el.closest('.inline-add-form') && !el.closest('.spot-entry-row'));
+  rows.forEach((el, i) => {
+    el.classList.toggle('field-row-alt', i % 2 === 1);
+  });
 }
 
 function selectEl(options, selectedValue, onChange) {

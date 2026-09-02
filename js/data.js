@@ -86,6 +86,17 @@ const FIELDS = {
     name: 'Name',
     complexity: 'Complexity',
   },
+  // Not independently re-fetched from the live API — inferred from the same
+  // Name/Unit/Category shape the seeded TESTS array below already uses,
+  // matching how every other seeded reference table names its fields
+  // (moveDefinitions.name/complexity mirrors MOVES.name/complexity the same
+  // way). Flag and re-fetch if a Test Definitions create ever comes back
+  // with a 422 (unrecognized field) once this is used.
+  testDefinitions: {
+    name: 'Name',
+    unit: 'Unit',
+    category: 'Category',
+  },
   shotRoutineSteps: {
     step: 'Step', // primary field, auto/not written by the app
     routineName: 'Routine Name',

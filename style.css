@@ -2,6 +2,7 @@
   --bg: #12100e;
   --surface: #1c1916;
   --surface-2: #262220;
+  --stripe: #362f27; /* deliberately more contrast than surface-2 against surface — that pair reads as near-identical for alternating-section striping */
   --text: #f2ede7;
   --text-dim: #a89f95;
   --accent: #ed6c02;
@@ -99,6 +100,7 @@ html, body {
   padding: 12px;
   margin-bottom: 12px;
 }
+.spot-entry-row-alt { background: var(--stripe); }
 .spot-entry-header {
   display: flex;
   align-items: center;
@@ -161,6 +163,7 @@ html, body {
 /* Form primitives */
 .screen-body { display: flex; flex-direction: column; gap: 4px; }
 .field-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.field-row-alt { background: var(--stripe); border-radius: 10px; padding: 10px 12px; }
 .field-label { font-size: 13px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.03em; }
 
 .text-input, .native-select, .text-area {
@@ -230,19 +233,8 @@ input.stepper-value::-webkit-inner-spin-button {
   margin: 0;
 }
 
-.stepper-group { display: flex; flex-direction: column; gap: 6px; }
-.stepper-quickadds { display: flex; gap: 6px; }
-.stepper-quickadd {
-  flex: 1;
-  padding: 10px 4px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--text-dim);
-  font-size: 13px;
-  font-weight: 700;
-}
-.stepper-quickadd:active { border-color: var(--accent); color: var(--accent); }
+.field-row-pair { display: flex; gap: 12px; margin-bottom: 18px; }
+.field-row-pair-item { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 
 .btn-primary, .btn-secondary {
   display: block;

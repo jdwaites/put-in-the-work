@@ -79,7 +79,8 @@ function shotChartColor(pct) {
   return 'var(--good)';
 }
 
-// stats: [{ spot, attempts, pct }] — pct null means "not enough attempts",
+// stats: [{ spot, attempts, pct }] — pct null means the spot wasn't shot in
+// whatever scope the caller computed (currently: the last session),
 // rendered as a neutral gray dot rather than omitted, so every spot always
 // shows up on the chart even before it has real data.
 function shotChartSVG(stats) {
@@ -118,7 +119,7 @@ function shotChartSVG(stats) {
 
     const title = document.createElementNS(NS, 'title');
     title.textContent = pct === null
-      ? `${spot.name}: not enough attempts yet (${attempts})`
+      ? `${spot.name}: not shot`
       : `${spot.name}: ${Math.round(pct)}% (${attempts} attempts)`;
     g.appendChild(title);
 

@@ -6,6 +6,7 @@ const ROUTES = {
   '#benchmark': BenchmarkScreen,
   '#game': GameScreen,
   '#reports': ReportsScreen,
+  '#edit-last': EditLastScreen,
   '#settings': SettingsScreen,
 };
 
