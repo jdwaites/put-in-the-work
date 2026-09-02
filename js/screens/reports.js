@@ -133,12 +133,15 @@ function computeShotPRs(shotResults) {
   return SPOTS.map((spot) => ({ spot, pr: bestBySpot.get(spot.id) })).filter((x) => x.pr);
 }
 
-// All-time accuracy per spot (every attempt ever logged there, not grouped
-// by session like PRs/trends — a shot chart is a "how am I shooting from
-// here overall" heat map, not a best-single-session view).
-function computeShotChartStats(shotResults) {
+// Scoped to the single most recent session, not all-time history — "what
+// did this session look like" is a more immediately useful read than a
+// slow-moving career heat map, and matches the session-summary card right
+// below it on this page (same session, two views of it). A spot not shot
+// that session shows as no-data gray rather than falling back to older
+// history, so the chart always reflects exactly one session at a glance.
+function computeShotChartStats(shotResults, sessionId) {
   const bySpot = new Map();
-  shotResults.forEach((r) => {
+  shotResults.filter((r) => r.sessionId === sessionId).forEach((r) => {
     if (!r.spotId) return;
     const g = bySpot.get(r.spotId) || { spotId: r.spotId, makes: 0, misses: 0 };
     g.makes += r.makes;
@@ -148,18 +151,18 @@ function computeShotChartStats(shotResults) {
   return SPOTS.map((spot) => {
     const g = bySpot.get(spot.id);
     const attempts = g ? g.makes + g.misses : 0;
-    const enoughData = attempts >= MIN_ATTEMPTS_FOR_PR;
-    return { spot, attempts, pct: enoughData ? (g.makes / attempts) * 100 : null };
+    return { spot, attempts, pct: attempts > 0 ? (g.makes / attempts) * 100 : null };
   });
 }
 
 function renderShotChart(body, player, screens, data) {
   if (!screens.includes('shooting')) return;
-  body.appendChild(h('h3', { class: 'section-heading', text: 'Shot Chart' }));
+  body.appendChild(h('h3', { class: 'section-heading', text: 'Shot Chart — Last Session' }));
 
-  const stats = computeShotChartStats(data.shotResults);
+  const sessionId = latestSessionId(data.shotResults);
+  const stats = sessionId ? computeShotChartStats(data.shotResults, sessionId) : [];
   if (!stats.some((s) => s.attempts > 0)) {
-    body.appendChild(h('div', { class: 'queue-empty', text: 'No shots logged yet — the chart fills in after a session or two.' }));
+    body.appendChild(h('div', { class: 'queue-empty', text: 'No sessions logged yet — the chart fills in after your first one.' }));
     return;
   }
 
@@ -168,7 +171,7 @@ function renderShotChart(body, player, screens, data) {
     h('span', { class: 'legend-dot', style: 'background:var(--good)' }), h('span', { text: '60%+' }),
     h('span', { class: 'legend-dot', style: 'background:var(--warn)' }), h('span', { text: '40–59%' }),
     h('span', { class: 'legend-dot', style: 'background:var(--bad)' }), h('span', { text: '<40%' }),
-    h('span', { class: 'legend-dot', style: 'background:var(--border)' }), h('span', { text: `<${MIN_ATTEMPTS_FOR_PR} attempts` }),
+    h('span', { class: 'legend-dot', style: 'background:var(--border)' }), h('span', { text: 'not shot' }),
   ]));
 }
 
