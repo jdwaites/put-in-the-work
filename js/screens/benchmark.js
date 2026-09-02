@@ -108,6 +108,8 @@ const BenchmarkScreen = {
         LastEntry.set('benchmark', playerId, { testId: state.testId, resultValue: state.resultValue });
         BenchmarkScreen.render(container);
       }));
+
+      stripeFieldRows(formHost);
     }
 
     renderForm();

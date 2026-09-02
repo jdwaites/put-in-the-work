@@ -186,6 +186,8 @@ const WorkoutScreen = {
         LastEntry.set('workout', playerId, { category: state.category, duration: state.duration, intensity: state.intensity, grade: state.grade, comments: state.comments });
         WorkoutScreen.render(container);
       }));
+
+      stripeFieldRows(formHost);
     }
 
     function renderAddTemplateForm() {

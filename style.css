@@ -99,6 +99,7 @@ html, body {
   padding: 12px;
   margin-bottom: 12px;
 }
+.spot-entry-row-alt { background: var(--surface-2); }
 .spot-entry-header {
   display: flex;
   align-items: center;
@@ -161,6 +162,7 @@ html, body {
 /* Form primitives */
 .screen-body { display: flex; flex-direction: column; gap: 4px; }
 .field-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.field-row-alt { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; }
 .field-label { font-size: 13px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.03em; }
 
 .text-input, .native-select, .text-area {

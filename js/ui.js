@@ -132,6 +132,25 @@ function fieldRow(labelText, control) {
   ]);
 }
 
+// Alternates a background tint across every other top-level .field-row in
+// a container, purely so a long sequential form is easier to scan at a
+// glance. Call once after a form's fieldRow()s are all appended (not per
+// field) — deliberately DOM-order-based via querySelectorAll, not CSS
+// :nth-of-type, which counts by tag name among ALL sibling elements of
+// that tag, not just .field-row ones; that would silently misalign
+// whenever a non-field-row div (a fetch-error banner, an inline-add-form)
+// is interspersed. Field-rows already living inside their own bordered box
+// (an inline-add-form, Shooting's spot-entry-row) are skipped — those
+// already have their own visual separation, and stripe those containers
+// individually if they need it (see Shooting's own per-row alternating).
+function stripeFieldRows(container) {
+  const rows = Array.from(container.querySelectorAll('.field-row'))
+    .filter((el) => !el.closest('.inline-add-form') && !el.closest('.spot-entry-row'));
+  rows.forEach((el, i) => {
+    el.classList.toggle('field-row-alt', i % 2 === 1);
+  });
+}
+
 function selectEl(options, selectedValue, onChange) {
   const sel = h('select', { class: 'native-select', onchange: (e) => onChange(e.target.value) });
   options.forEach((opt) => {

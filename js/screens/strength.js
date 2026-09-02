@@ -142,6 +142,8 @@ const StrengthScreen = {
         });
         StrengthScreen.render(container);
       }));
+
+      stripeFieldRows(formHost);
     }
 
     renderForm();
