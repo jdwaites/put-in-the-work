@@ -48,9 +48,13 @@ const ReportsScreen = {
 };
 
 async function loadReportData(player, screens) {
-  const data = { shotResults: [], benchmarkRecords: [], workoutCount: 0, strengthCount: 0, gameCount: 0 };
+  const data = { shotResults: [], benchmarkRecords: [], workoutCount: 0, strengthCount: 0, gameCount: 0, moves: mergeMoves([]) };
   if (screens.includes('shooting')) {
     data.shotResults = await fetchPlayerShotSpotResults(player.id);
+    // For labeling per-move trend lines below — fetchMoves/mergeMoves are
+    // top-level globals in shooting.js, loaded before this file.
+    const movesResult = await fetchMoves();
+    data.moves = mergeMoves(movesResult.moves);
   }
   if (screens.includes('benchmark')) {
     const all = await fetchAllRecords(TABLES.benchmarkResults.id, {});
@@ -115,6 +119,28 @@ function groupShotsBySpotSession(shotResults) {
     bySpotSession.set(key, g);
   });
   return Array.from(bySpotSession.values());
+}
+
+// Same idea as groupShotsBySpotSession but also splits by move — a
+// Step-Back Jumper and a Catch & Shoot at the same spot aren't really
+// comparable, so trends need this finer grouping to avoid blending an easy
+// variation and a hard one into one misleading average. Rows with no move
+// tagged are their own bucket ('__none__'), not merged into whichever
+// named move happens to be dominant. Used only by the Trends section below
+// — PRs/shot chart/suggested focus stay spot-only for now.
+function groupShotsBySpotMoveSession(shotResults) {
+  const map = new Map();
+  shotResults.forEach((r) => {
+    if (!r.spotId || !r.sessionId) return;
+    const moveKey = r.moveId || '__none__';
+    const key = `${r.spotId}::${moveKey}::${r.sessionId}`;
+    const g = map.get(key) || { spotId: r.spotId, moveId: r.moveId || null, date: r.date, makes: 0, misses: 0 };
+    g.makes += r.makes;
+    g.misses += r.misses;
+    if (r.date && r.date > g.date) g.date = r.date;
+    map.set(key, g);
+  });
+  return Array.from(map.values());
 }
 
 function computeShotPRs(shotResults) {
@@ -272,21 +298,65 @@ function renderPersonalRecords(body, player, screens, data) {
   }
 }
 
+const MIN_SESSIONS_FOR_MOVE_TREND = 2; // a spot only splits into per-move lines once a move has its own real history there
+
 function renderTrendGraphs(body, player, screens, data) {
   body.appendChild(h('h3', { class: 'section-heading', text: 'Trends' }));
   let renderedAny = false;
 
   if (screens.includes('shooting')) {
-    const trends = computeShotTrends(data.shotResults);
+    const groupsBySpot = new Map();
+    groupShotsBySpotMoveSession(data.shotResults).forEach((g) => {
+      const list = groupsBySpot.get(g.spotId) || [];
+      list.push(g);
+      groupsBySpot.set(g.spotId, list);
+    });
+
+    const toSeries = (groups) => groups
+      .slice()
+      .sort((a, b) => (a.date > b.date ? 1 : -1))
+      .map((g) => ({ date: g.date, pct: (g.makes / (g.makes + g.misses || 1)) * 100 }));
+
     SPOTS.forEach((spot) => {
-      const series = trends.get(spot.id);
-      if (!series || series.length === 0) return;
+      const spotGroups = groupsBySpot.get(spot.id);
+      if (!spotGroups || spotGroups.length === 0) return;
       renderedAny = true;
-      const last = series[series.length - 1];
-      const wrap = h('div', { class: 'spot-entry-row' });
-      wrap.appendChild(h('div', { class: 'field-label', text: `${spot.name} — ${Math.round(last.pct)}% last time (${series.length} session${series.length === 1 ? '' : 's'})` }));
-      wrap.appendChild(lineChartSVG(series.map((s) => s.pct), { min: 0, max: 100 }));
-      body.appendChild(wrap);
+
+      const byMove = new Map();
+      spotGroups.forEach((g) => {
+        const key = g.moveId || '__none__';
+        const list = byMove.get(key) || [];
+        list.push(g);
+        byMove.set(key, list);
+      });
+      const establishedMoves = Array.from(byMove.entries()).filter(([, list]) => list.length >= MIN_SESSIONS_FOR_MOVE_TREND);
+
+      if (establishedMoves.length < 2) {
+        // Not enough independent move history to split meaningfully yet —
+        // the familiar single trend blended across whatever moves were used.
+        const series = toSeries(spotGroups);
+        const last = series[series.length - 1];
+        const wrap = h('div', { class: 'spot-entry-row' });
+        wrap.appendChild(h('div', { class: 'field-label', text: `${spot.name} — ${Math.round(last.pct)}% last time (${series.length} session${series.length === 1 ? '' : 's'})` }));
+        wrap.appendChild(lineChartSVG(series.map((s) => s.pct), { min: 0, max: 100 }));
+        body.appendChild(wrap);
+      } else {
+        // Real move variety at this spot — split so an easy Catch & Shoot
+        // and a hard Step-Back Jumper don't blend into one misleading
+        // average that looks flat even if each move's own trend is moving.
+        body.appendChild(h('div', { class: 'field-label', text: `${spot.name} — by move (varies enough to show separately)` }));
+        establishedMoves
+          .sort((a, b) => b[1].length - a[1].length) // most-practiced move first
+          .forEach(([moveKey, groups]) => {
+            const moveName = moveKey === '__none__' ? 'No move specified' : ((data.moves.find((m) => m.id === moveKey) || {}).name || 'Custom move');
+            const series = toSeries(groups);
+            const last = series[series.length - 1];
+            const wrap = h('div', { class: 'spot-entry-row' });
+            wrap.appendChild(h('div', { class: 'field-label', text: `${moveName} — ${Math.round(last.pct)}% last time (${series.length} sessions)` }));
+            wrap.appendChild(lineChartSVG(series.map((s) => s.pct), { min: 0, max: 100 }));
+            body.appendChild(wrap);
+          });
+      }
     });
   }
 
