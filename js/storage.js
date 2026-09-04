@@ -11,6 +11,7 @@ const LS_KEYS = {
   lastSaved: 'pw_last_saved',
   recentWorkouts: 'pw_recent_workouts',
   shootingDrafts: 'pw_shooting_copractice',
+  gameDrafts: 'pw_game_copractice',
   strengthDrafts: 'pw_strength_session_drafts',
   playerScreenOverrides: 'pw_player_screen_overrides',
   onboarded: 'pw_onboarded',
@@ -173,6 +174,42 @@ const ShootingDrafts = {
   },
   clear() {
     writeJSON(LS_KEYS.shootingDrafts, { activePlayers: [], currentActivePlayerId: null, drafts: {} });
+  },
+};
+
+// Game Log co-practice drafts (2026-09-03 rebuild) — same motivation and
+// shape as ShootingDrafts: the old Game Log screen kept its in-progress
+// entry in a plain JS variable scoped to whichever player was selected, so
+// tapping the player switcher mid-entry silently threw the other player's
+// unsaved stats away (the actual bug report that triggered this rebuild).
+// `rows` here is the shot chart: one entry per court spot the player was
+// tapped for, { spotId, attempts, makes, misses } — Points on the Game Log
+// record itself is computed from these via each Spot's Point Value, never
+// typed in directly.
+function emptyGameDraft(date) {
+  return {
+    date,
+    opponent: '',
+    minutes: 0,
+    rebounds: 0,
+    assists: 0,
+    steals: '',
+    turnovers: '',
+    whatWentWell: '',
+    whatToWorkOn: '',
+    rows: [],
+  };
+}
+
+const GameDrafts = {
+  get() {
+    return readJSON(LS_KEYS.gameDrafts, { activePlayers: [], currentActivePlayerId: null, drafts: {} });
+  },
+  save(state) {
+    writeJSON(LS_KEYS.gameDrafts, state);
+  },
+  clear() {
+    writeJSON(LS_KEYS.gameDrafts, { activePlayers: [], currentActivePlayerId: null, drafts: {} });
   },
 };
 

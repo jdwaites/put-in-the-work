@@ -71,7 +71,11 @@ through the local-first queue in `js/sync.js`, unrelated to this cache.
   linkField}, ...]`, all of which must resolve before the item can push —
   see `unresolvedDependencies()`.
 - `js/ui.js` — shared tap-friendly components: player switcher, tap-select
-  segmented control, numeric stepper, toast, sync status badge.
+  segmented control, numeric stepper, toast, sync status badge, and
+  `courtDiagram()` (added for Game Log v2) — a schematic inline-SVG
+  half-court with tappable zones, built via `svgEl()` (an `h()`-alike that
+  creates elements in the SVG namespace, since `document.createElement`
+  builds SVG tags in the wrong namespace and they silently fail to render).
 - `js/recent.js` — "last 5 entries + delete" used at the bottom of every
   entry screen. Reads go straight to the Airtable REST API (GET a recent
   window, then filter client-side by linked-record ID — deliberately not a
@@ -85,7 +89,8 @@ through the local-first queue in `js/sync.js`, unrelated to this cache.
   Session cascades to its Shot Spot Results, both for synced sessions
   (`deleteShootingSessionCascade`) and pending ones (`onDeletePending` in
   `js/screens/shooting.js` also removes queue items whose `dependsOn` list
-  includes the session being deleted).
+  includes the session being deleted) — Game Log deletion works the same way
+  for Game Shot Results (`deleteGameLogCascade` in `js/screens/game.js`).
 - `js/screens/*.js` — one file per entry screen (home, workout, strength,
   shooting, benchmark, game, settings). Each is a plain object with a
   `render(container)` method; `js/app.js` is a minimal hash-based router.
@@ -261,6 +266,173 @@ Target Makes field, so it applies to any routine added later with no app
 change, not just the two seeded today. Manually-added freeform rows (via
 "+ Add spot", no routine involved) still default `makes: 0` — there's no
 target to assume there.
+
+## Game Log v2 — co-practice mode + shot chart (2026-09-03)
+
+The original Game Log screen kept its in-progress entry in a plain JS
+`state` object scoped to whichever player was selected, with nothing
+persisted to `localStorage` — tapping the player switcher mid-entry just
+re-ran `render()` for the new player and silently threw the other player's
+unsaved stats away. That was a real bug report (logged one kid's game,
+switched to log the other's, lost the first one's data) and is fixed the
+same way Shooting v2 fixed the equivalent problem: `GameDrafts`
+(`js/storage.js`) keeps one independent, `localStorage`-persisted draft per
+active player, so switching tabs — or leaving the screen entirely and
+coming back — never touches another player's in-progress entry.
+
+New this rebuild: a visual court **shot chart** replaces manual Points
+entry. `courtDiagram()` (`js/ui.js`) renders a schematic (not to-scale)
+half-court as inline SVG with 14 tappable zones, one per Spot Definition,
+positioned by `GAME_SPOT_COORDS` in `js/screens/game.js` (keyed by Spot id,
+not name, so it survives a spot rename in Airtable). Tapping a zone opens
+an Attempts/Makes/Misses editor for that spot, same clamping behavior as
+Shooting's spot rows (Makes can never exceed Attempts). Each spot with an
+entry becomes a **Game Shot Results** record (`tblhvXPh4MV96bl3X`, added
+this rebuild) linked to its Game Log entry — mirroring Shot Spot
+Results/Shooting Sessions, including the same `dependsOn` sync-queue
+pattern for the not-yet-synced parent.
+
+**Points is now computed, not typed in.** Spot Definitions gained a
+**Point Value** field (2026-09-03): 3 for the classic three-point spots
+(both corners, both wings, Top of Key), 1 for Free Throw, 2 for everything
+else (`SPOTS[].pointValue` in `js/data.js` mirrors it). Points on the
+submitted Game Log record is `sum(row.makes * spot.pointValue)` across the
+chart — there is no manual Points field anywhere in this screen or its
+editor. If a new Spot Definition is ever added, it needs a Point Value set
+in Airtable (and a coordinate in `GAME_SPOT_COORDS`) or it silently
+contributes 0 points from the chart.
+
+Also surfaced by this rebuild: **Steals** and **Turnovers** already existed
+as fields on the live Game Log table but had never been added to
+`FIELDS.gameLog` or exposed in the app — a genuine schema-doc drift, not a
+new addition. Both are `singleLineText` in Airtable (not number), so they
+render as free-entry text inputs here, not steppers.
+
+Co-practice submit/edit follow the same conventions as Shooting v2:
+`GameDrafts.clear()` fires immediately on successful local queueing, not
+after an Airtable round-trip (offline-first — see Shooting v2 above for
+why), and `LastSaved.set('gameSession', ...)` stores the whole
+game-plus-shot-rows shape (not just flat Game Log fields) so the Edit Last
+Entry hub's Game tab (`renderGameSessionEditForm` in
+`js/screens/edit-last.js`) can reconcile every row — patch ones still
+present, delete ones removed, create ones added — the same way
+`renderShootingSessionEditForm` already did for Shooting.
+
+### Attempts is derived from Makes + Misses, never a direct input (2026-09-03)
+
+Every Attempts/Makes/Misses stepper triple in the app (Game Log's shared
+shot chart, Shooting's spot rows, both screens' "edit last" forms) went
+through two iterations the same day. First pass: Attempts and Makes were
+both independently editable, clamped so Makes couldn't exceed Attempts —
+but that meant making a shot when Makes already equaled Attempts silently
+did nothing until Attempts was bumped manually first, and even the
+corrected one-directional-sync version of that (Makes auto-raising
+Attempts, but Attempts still independently settable) was wrong on the real
+requirement: **attempts only ever go up over the course of a game or
+session** — there's no real-world action that un-attempts a shot, so
+Attempts should never have been a freely-adjustable stepper (up *or* down)
+at all.
+
+Fixed by dropping Attempts as an input entirely. **Makes and Misses are the
+only two steppers** — the two things you actually tap as each shot happens
+— and Attempts renders as a plain read-only `stepper-readonly` display
+computed as `makes + misses`, recalculated on every Makes or Misses change.
+This is simpler than the sync logic it replaced, not just more correct:
+there's no clamping to write at all, since `makes > attempts` is no longer
+a state that can occur (attempts is defined in terms of makes). Applied
+identically in all five places this pattern is duplicated
+(`js/screens/game.js`, `js/screens/shooting.js` ×2, `js/screens/edit-last.js`
+×2) — if a sixth Attempts/Makes/Misses stepper set is ever added, it needs
+the same shape (two editable counters + one derived read-only sum), since
+each occurrence is independently copy-pasted rather than sharing one
+implementation.
+
+### Every active player shown side by side, one shared color-coded chart (2026-09-03)
+
+Game Log originally followed Shooting's tab model: tapping a player's tab
+switched which single player's entry was visible, hiding the rest. Changed
+twice in the same day as real usage clarified what was actually wanted —
+first to one always-visible card per player (stacked), then to the current
+shape: every active player's card renders **side by side** in a responsive
+grid (`.game-cards-grid`, `grid-template-columns: repeat(auto-fit,
+minmax(260px, 1fr))` — wraps to one column on a narrow phone, sits side by
+side once there's room), and the shot chart is **one shared court diagram**
+above the cards rather than one per player, since logging a real game means
+both kids' shots happened on the *same* physical court at the same time.
+Tabs only add/remove a player from today's practice; they no longer gate
+visibility.
+
+**Shared chart, per-player color.** `courtDiagram()` (`js/ui.js`) takes a
+`series` array per spot — one entry per active player — and splits a spot
+with shots from 2+ players into equal colored pie wedges (`pieWedgePath()`
+does the arc math); a spot only one player has shot from just fills solid
+in their color; untouched spots stay a neutral gray circle. Colors always
+come from an inline `style="fill:..."` on the SVG element, never a CSS
+class — a class-based `fill` rule would silently win over the shape's own
+per-player color in the cascade (inline `style` beats any stylesheet
+selector), which is why `.court-spot-circle`/`.court-spot-outline` in
+`style.css` only ever set `stroke`, not `fill`. The spot number renders
+with a white-fill/black-stroke outline (`paint-order: stroke`) so it stays
+legible over any wedge color. Tapping a spot opens **one shared editor**
+(`renderSharedSpotEditor`) with a `.game-shot-editor-col` per active
+player — its own Makes/Misses steppers plus a read-only derived Attempts
+display, colored to match (see "Attempts is derived..." below) — so two
+kids' shots at the same spot get logged side by side in one tap, not one
+screen each. A column's row is only written into that specific player's
+draft the moment *their* Makes or Misses actually changes (never on open/
+close), same anti-phantom-row guard as before, scoped per player.
+
+**Colors are assigned once, permanently, per player.** `GAME_PLAYER_COLORS`
+is keyed by a player's fixed position in `PLAYERS`, not by activePlayers
+order — so a given player's card/wedges are always the same color across
+visits, regardless of who else is active or what order they were added.
+
+**App shell widens for this layout.** `#app` gets a `wide` class
+(`max-width: min(1100px, 96vw)`) whenever Game Log has 2+ players active,
+toggled directly in `js/screens/game.js`, so the side-by-side grid actually
+gets real estate on a tablet/desktop browser instead of staying capped at
+the app's normal 480px phone width. This is reset centrally in `js/app.js`'s
+router `render()` (`classList.remove('wide')` before every screen renders)
+rather than in each screen, specifically so a stale wide layout from a
+previous Game Log visit can never leak into a screen that never asked for
+it — if another screen ever wants this same treatment, it should add the
+`wide` class itself the same way, not rely on a prior screen having left it
+on.
+
+**No more big photo-tab row for active players.** The first version of this
+redesign kept Shooting's tab-switcher look — a row of large avatar buttons,
+colored when active, with a small ✕ next to each to remove them — even
+though switching had already been removed as a concept. That left a row of
+buttons that did nothing when tapped (an active player's photo was already
+fully identified by their own card below) and quietly duplicated the
+remove action in a second location. Replaced with `renderAddPlayerRow()`:
+a compact row that only ever lists players who *aren't* active yet, as
+plain "+ Name" buttons — it shows nothing once everyone eligible for games
+is already logged. Removing a player now lives on their own card instead
+(a `✕`/"Confirm remove?" two-tap button in `renderPlayerForm`'s header,
+shown only when 2+ players are active so the last one can't be removed) —
+the destructive action sits next to the data it deletes rather than in a
+separate control that reads as a toggle. If a similar side-by-side,
+always-visible-card pattern gets built elsewhere, skip the tab row
+entirely and go straight to this shape.
+
+**The rendering split that matters if this pattern gets copied elsewhere**:
+each card has an independent `formHost` (rebuilt on every keystroke via
+`renderPlayerForm(playerId)`, scoped to just that player's own
+minutes/rebounds/assists/etc — no chart in here anymore) and `recentHost`
+(fetched once via `renderPlayerRecent(playerId)`, only on structural
+changes — add/remove player, initial load, post-submit). Wiring a field's
+`onChange` to rebuild the *whole* card would silently re-fetch that
+player's recent-entries list from Airtable on every single stepper tap. The
+shared chart has its own similarly-scoped `renderChart()` (rebuilds the SVG
++ the one open spot's editor, called by any active player's Attempts/Makes
+change — cheap since it's just SVG) kept separate from `renderCards()`
+(rebuilds the whole card grid — only on add/remove/submit) for the same
+reason. There's a shared `submitHost` (one combined Submit button below
+everything, listing whichever players actually have data) refreshed via
+`renderSubmitBar()` alongside every field handler across both the chart and
+each card, since typing into any of them can change who's eligible to
+submit.
 
 ## Testing
 

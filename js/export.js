@@ -2,10 +2,10 @@
 // through the browser's own download/clipboard/share mechanisms. Used by
 // the Reports session-summary card and by JSON/CSV export in Settings.
 
-// The 6 "RESULTS" tables — logged data to analyze, not reference/structural
+// The 7 "RESULTS" tables — logged data to analyze, not reference/structural
 // data (Players, Spot/Test/Move Definitions, Shot Routine Steps, Workout
 // Templates are deliberately excluded from export/import).
-const RESULTS_TABLE_KEYS = ['workoutLogs', 'strengthLogs', 'benchmarkResults', 'shootingSessions', 'shotSpotResults', 'gameLog'];
+const RESULTS_TABLE_KEYS = ['workoutLogs', 'strengthLogs', 'benchmarkResults', 'shootingSessions', 'shotSpotResults', 'gameLog', 'gameShotResults'];
 
 const RESULTS_TABLE_PLAYER_FIELD = {
   workoutLogs: FIELDS.workoutLogs.player,
@@ -13,8 +13,8 @@ const RESULTS_TABLE_PLAYER_FIELD = {
   benchmarkResults: FIELDS.benchmarkResults.player,
   shootingSessions: FIELDS.shootingSessions.player,
   gameLog: FIELDS.gameLog.player,
-  // shotSpotResults has no player field of its own — filtered by session
-  // membership instead, below.
+  // shotSpotResults/gameShotResults have no player field of their own —
+  // filtered by session/game membership instead, below.
 };
 
 // playerId === null exports every player. Keeps each record's raw Airtable
@@ -23,6 +23,7 @@ const RESULTS_TABLE_PLAYER_FIELD = {
 async function exportResultsJSON(playerId) {
   const out = {};
   let sessionIdsForPlayer = null;
+  let gameIdsForPlayer = null;
 
   for (const key of RESULTS_TABLE_KEYS) {
     const table = TABLES[key];
@@ -32,6 +33,9 @@ async function exportResultsJSON(playerId) {
       if (key === 'shotSpotResults') {
         if (!sessionIdsForPlayer) sessionIdsForPlayer = new Set((out.shootingSessions || []).map((r) => r.id));
         filtered = all.filter((r) => (r.fields[FIELDS.shotSpotResults.session] || []).some((sid) => sessionIdsForPlayer.has(sid)));
+      } else if (key === 'gameShotResults') {
+        if (!gameIdsForPlayer) gameIdsForPlayer = new Set((out.gameLog || []).map((r) => r.id));
+        filtered = all.filter((r) => (r.fields[FIELDS.gameShotResults.game] || []).some((gid) => gameIdsForPlayer.has(gid)));
       } else {
         const playerField = RESULTS_TABLE_PLAYER_FIELD[key];
         filtered = all.filter((r) => (r.fields[playerField] || []).includes(playerId));
@@ -207,7 +211,8 @@ function csvRowsForTable(key, records, lookups, sessionInfoById) {
         columns: [
           { key: 'date', label: 'Date' }, { key: 'player', label: 'Player' }, { key: 'opponent', label: 'Opponent' },
           { key: 'minutes', label: 'Minutes' }, { key: 'points', label: 'Points' }, { key: 'rebounds', label: 'Rebounds' },
-          { key: 'assists', label: 'Assists' }, { key: 'whatWentWell', label: 'What Went Well' }, { key: 'whatToWorkOn', label: 'What To Work On' },
+          { key: 'assists', label: 'Assists' }, { key: 'steals', label: 'Steals' }, { key: 'turnovers', label: 'Turnovers' },
+          { key: 'whatWentWell', label: 'What Went Well' }, { key: 'whatToWorkOn', label: 'What To Work On' },
         ],
         rows: records.map((r) => ({
           date: r.fields[FIELDS.gameLog.date] || '',
@@ -217,9 +222,29 @@ function csvRowsForTable(key, records, lookups, sessionInfoById) {
           points: r.fields[FIELDS.gameLog.points] ?? '',
           rebounds: r.fields[FIELDS.gameLog.rebounds] ?? '',
           assists: r.fields[FIELDS.gameLog.assists] ?? '',
+          steals: r.fields[FIELDS.gameLog.steals] || '',
+          turnovers: r.fields[FIELDS.gameLog.turnovers] || '',
           whatWentWell: r.fields[FIELDS.gameLog.whatWentWell] || '',
           whatToWorkOn: r.fields[FIELDS.gameLog.whatToWorkOn] || '',
         })),
+      };
+    case 'gameShotResults':
+      return {
+        columns: [
+          { key: 'date', label: 'Date' }, { key: 'player', label: 'Player' }, { key: 'opponent', label: 'Opponent' },
+          { key: 'spot', label: 'Spot' }, { key: 'makes', label: 'Makes' }, { key: 'misses', label: 'Misses' },
+        ],
+        rows: records.map((r) => {
+          const info = sessionInfoById.get(first(r.fields[FIELDS.gameShotResults.game])) || { player: '', date: '', opponent: '' };
+          return {
+            date: info.date,
+            player: info.player,
+            opponent: info.opponent,
+            spot: lookups.spotNameById.get(first(r.fields[FIELDS.gameShotResults.spot])) || '',
+            makes: r.fields[FIELDS.gameShotResults.makes] ?? '',
+            misses: r.fields[FIELDS.gameShotResults.misses] ?? '',
+          };
+        }),
       };
     default:
       return { columns: [], rows: [] };
@@ -234,11 +259,21 @@ async function exportResultsCSV(playerId) {
   const lookups = await buildNameLookups();
   const data = await exportResultsJSON(playerId);
 
+  // Shared by both shotSpotResults (keyed by Shooting Session id) and
+  // gameShotResults (keyed by Game Log id) below — record ids from the two
+  // source tables can't collide, so one lookup map covers both joins.
   const sessionInfoById = new Map();
   (data.shootingSessions || []).forEach((r) => {
     sessionInfoById.set(r.id, {
       player: lookups.playerNameById.get((r.fields[FIELDS.shootingSessions.player] || [])[0]) || '',
       date: r.fields[FIELDS.shootingSessions.date] || '',
+    });
+  });
+  (data.gameLog || []).forEach((r) => {
+    sessionInfoById.set(r.id, {
+      player: lookups.playerNameById.get((r.fields[FIELDS.gameLog.player] || [])[0]) || '',
+      date: r.fields[FIELDS.gameLog.date] || '',
+      opponent: r.fields[FIELDS.gameLog.opponent] || '',
     });
   });
 

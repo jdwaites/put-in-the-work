@@ -47,7 +47,7 @@ const EditLastScreen = {
       strength: renderStrengthEditForm,
       shooting: renderShootingSessionEditForm,
       benchmark: renderBenchmarkEditForm,
-      game: renderGameEditForm,
+      game: renderGameSessionEditForm,
     };
 
     function renderForm() {
@@ -260,68 +260,206 @@ function renderBenchmarkEditForm(host, player) {
   stripeFieldRows(host);
 }
 
-function renderGameEditForm(host, player) {
+// Edits the player's whole last Game Log entry — its stats plus every Game
+// Shot Result row from the shot chart, not just the flat fields — mirroring
+// renderShootingSessionEditForm below. Points is recomputed from the
+// reconciled rows on save, same as the Game Log screen itself; there's no
+// manual Points field here to edit directly.
+function renderGameSessionEditForm(host, player) {
   host.innerHTML = '';
   const playerId = player.id;
-  const lastSaved = LastSaved.get('game', playerId);
-  if (!lastSaved) {
+  const lastGame = LastSaved.get('gameSession', playerId);
+  if (!lastGame) {
     host.appendChild(h('div', { class: 'queue-empty', text: `No Game entry to edit yet for ${player.name}.` }));
     return;
   }
-  const f = lastSaved.fields;
-  const state = {
-    date: f[FIELDS.gameLog.date] || todayISO(),
-    opponent: f[FIELDS.gameLog.opponent] || '',
-    minutes: f[FIELDS.gameLog.minutesPlayed] ?? 0,
-    points: f[FIELDS.gameLog.points] ?? 0,
-    rebounds: f[FIELDS.gameLog.rebounds] ?? 0,
-    assists: f[FIELDS.gameLog.assists] ?? 0,
-    whatWentWell: f[FIELDS.gameLog.whatWentWell] || '',
-    whatToWorkOn: f[FIELDS.gameLog.whatToWorkOn] || '',
+
+  const gf = lastGame.session.fields;
+  const gameState = {
+    date: gf[FIELDS.gameLog.date] || todayISO(),
+    opponent: gf[FIELDS.gameLog.opponent] || '',
+    minutes: gf[FIELDS.gameLog.minutesPlayed] ?? 0,
+    rebounds: gf[FIELDS.gameLog.rebounds] ?? 0,
+    assists: gf[FIELDS.gameLog.assists] ?? 0,
+    steals: gf[FIELDS.gameLog.steals] || '',
+    turnovers: gf[FIELDS.gameLog.turnovers] || '',
+    whatWentWell: gf[FIELDS.gameLog.whatWentWell] || '',
+    whatToWorkOn: gf[FIELDS.gameLog.whatToWorkOn] || '',
   };
-
-  const dateInput = h('input', { class: 'text-input', type: 'date', value: state.date, onchange: (e) => (state.date = e.target.value) });
-  const opponentInput = h('input', { class: 'text-input', placeholder: 'Opponent name', value: state.opponent, oninput: (e) => (state.opponent = e.target.value) });
-  const minutesStep = stepper(state.minutes, { min: 0, max: 120, label: 'minutes' }, (v) => (state.minutes = v));
-  const pointsStep = stepper(state.points, { min: 0, max: 100, label: 'points' }, (v) => (state.points = v));
-  const reboundsStep = stepper(state.rebounds, { min: 0, max: 50, label: 'rebounds' }, (v) => (state.rebounds = v));
-  const assistsStep = stepper(state.assists, { min: 0, max: 50, label: 'assists' }, (v) => (state.assists = v));
-  const wentWellArea = textArea('What went well?', state.whatWentWell, (v) => (state.whatWentWell = v));
-  const workOnArea = textArea('What to work on?', state.whatToWorkOn, (v) => (state.whatToWorkOn = v));
-
-  host.appendChild(fieldRow('Date', dateInput));
-  host.appendChild(fieldRow('Opponent', opponentInput));
-  host.appendChild(fieldRow('Minutes Played', minutesStep));
-  host.appendChild(fieldRow('Points', pointsStep));
-  host.appendChild(fieldRow('Rebounds', reboundsStep));
-  host.appendChild(fieldRow('Assists', assistsStep));
-  host.appendChild(fieldRow('What Went Well', wentWellArea));
-  host.appendChild(fieldRow('What To Work On', workOnArea));
-
-  host.appendChild(primaryButton('Update Entry', async () => {
-    const label = `${player.name} vs ${state.opponent || 'Unknown'} – ${state.date}`;
-    const fields = {
-      [FIELDS.gameLog.opponent]: state.opponent,
-      [FIELDS.gameLog.player]: [playerId],
-      [FIELDS.gameLog.date]: state.date,
-      [FIELDS.gameLog.minutesPlayed]: state.minutes,
-      [FIELDS.gameLog.points]: state.points,
-      [FIELDS.gameLog.rebounds]: state.rebounds,
-      [FIELDS.gameLog.assists]: state.assists,
-      [FIELDS.gameLog.whatWentWell]: state.whatWentWell,
-      [FIELDS.gameLog.whatToWorkOn]: state.whatToWorkOn,
+  // Working row list — existingLocalId/existingTableId are null for a row
+  // added during this edit (POST on save); set for a row that was already
+  // saved (PATCH on save, or delete if removed from this list before save).
+  let rows = lastGame.rows.map((r) => {
+    const makes = r.fields[FIELDS.gameShotResults.makes] || 0;
+    const misses = r.fields[FIELDS.gameShotResults.misses] || 0;
+    return {
+      existingLocalId: r.localId,
+      existingTableId: r.tableId,
+      spotId: (r.fields[FIELDS.gameShotResults.spot] || [])[0] || SPOTS[0].id,
+      attempts: makes + misses,
+      makes,
+      misses,
     };
-    const ok = await updateExistingRecord({ localId: lastSaved.localId, tableId: TABLES.gameLog.id }, fields);
-    if (!ok) {
-      toast("Couldn't find that entry to update — try refreshing", 'warn');
-      return;
-    }
-    LastSaved.set('game', playerId, { localId: lastSaved.localId, tableId: TABLES.gameLog.id, fields, screenLabel: label, savedAt: new Date().toISOString() });
-    toast('Game entry updated');
-    renderGameEditForm(host, player);
-  }));
+  });
+  const removedExistingRows = []; // {localId, tableId} pulled out of `rows` on remove, deleted on save
 
-  stripeFieldRows(host);
+  function computePoints() {
+    return rows.reduce((sum, row) => {
+      const spot = SPOTS.find((s) => s.id === row.spotId);
+      return sum + row.makes * (spot ? spot.pointValue : 0);
+    }, 0);
+  }
+
+  function renderRow(row, idx) {
+    const rowWrap = h('div', { class: 'spot-entry-row' + (idx % 2 === 1 ? ' spot-entry-row-alt' : '') });
+
+    const spotSelect = selectEl(SPOTS.map((s) => ({ value: s.id, label: `${s.name} (${s.pointValue}pt)` })), row.spotId, (v) => { row.spotId = v; renderFields(); });
+
+    const attemptsDisplay = h('div', { class: 'stepper-value', text: String(row.attempts) });
+    const attemptsWrap = h('div', { class: 'stepper stepper-readonly' }, [attemptsDisplay]);
+    // Makes and Misses are the only things you actually tap as shots
+    // happen — Attempts is never a direct input, just their sum, displayed
+    // read-only. Attempts always goes up as a game progresses, same as a
+    // real court.
+    const makesStep = stepper(row.makes, { min: 0, max: 99, label: 'makes' }, (v) => {
+      row.makes = v;
+      row.attempts = row.makes + row.misses;
+      attemptsDisplay.textContent = String(row.attempts);
+      pointsHint.textContent = `Points (auto-calculated): ${computePoints()}`;
+    });
+    const missesStep = stepper(row.misses, { min: 0, max: 99, label: 'misses' }, (v) => {
+      row.misses = v;
+      row.attempts = row.makes + row.misses;
+      attemptsDisplay.textContent = String(row.attempts);
+    });
+
+    rowWrap.appendChild(h('div', { class: 'spot-entry-header' }, [
+      h('div', { class: 'spot-entry-title', text: `Spot ${idx + 1}` }),
+      h('button', { class: 'btn-remove', type: 'button', 'aria-label': 'Remove this spot', onclick: () => {
+        if (row.existingLocalId) removedExistingRows.push({ localId: row.existingLocalId, tableId: row.existingTableId });
+        rows.splice(idx, 1);
+        renderFields();
+      } }, '✕'),
+    ]));
+    rowWrap.appendChild(fieldRow('Spot', spotSelect));
+    rowWrap.appendChild(pairedFieldRow('Makes', makesStep, 'Misses', missesStep));
+    rowWrap.appendChild(fieldRow('Attempts', attemptsWrap));
+    return rowWrap;
+  }
+
+  let pointsHint;
+
+  function renderFields() {
+    host.innerHTML = '';
+
+    const dateInput = h('input', { class: 'text-input', type: 'date', value: gameState.date, onchange: (e) => (gameState.date = e.target.value) });
+    const opponentInput = h('input', { class: 'text-input', placeholder: 'Opponent name', value: gameState.opponent, oninput: (e) => (gameState.opponent = e.target.value) });
+    const minutesStep = stepper(gameState.minutes, { min: 0, max: 120, label: 'minutes' }, (v) => (gameState.minutes = v));
+    const reboundsStep = stepper(gameState.rebounds, { min: 0, max: 50, label: 'rebounds' }, (v) => (gameState.rebounds = v));
+    const assistsStep = stepper(gameState.assists, { min: 0, max: 50, label: 'assists' }, (v) => (gameState.assists = v));
+    const stealsInput = h('input', { class: 'text-input', inputmode: 'numeric', value: gameState.steals, oninput: (e) => (gameState.steals = e.target.value) });
+    const turnoversInput = h('input', { class: 'text-input', inputmode: 'numeric', value: gameState.turnovers, oninput: (e) => (gameState.turnovers = e.target.value) });
+    const wentWellArea = textArea('What went well?', gameState.whatWentWell, (v) => (gameState.whatWentWell = v));
+    const workOnArea = textArea('What to work on?', gameState.whatToWorkOn, (v) => (gameState.whatToWorkOn = v));
+
+    host.appendChild(fieldRow('Date', dateInput));
+    host.appendChild(fieldRow('Opponent', opponentInput));
+    host.appendChild(fieldRow('Minutes Played', minutesStep));
+    host.appendChild(fieldRow('Rebounds', reboundsStep));
+    host.appendChild(fieldRow('Assists', assistsStep));
+    host.appendChild(fieldRow('Steals', stealsInput));
+    host.appendChild(fieldRow('Turnovers', turnoversInput));
+
+    host.appendChild(h('h3', { class: 'section-heading', text: 'Shot Chart' }));
+    if (rows.length === 0) {
+      host.appendChild(h('div', { class: 'queue-empty', text: 'No spots left — add one below, or leave empty to remove the shot chart entirely.' }));
+    }
+    rows.forEach((row, idx) => host.appendChild(renderRow(row, idx)));
+
+    host.appendChild(secondaryButton('+ Add spot', () => {
+      rows.push({ existingLocalId: null, existingTableId: null, spotId: SPOTS[0].id, attempts: 0, makes: 0, misses: 0 });
+      renderFields();
+    }));
+
+    pointsHint = h('div', { class: 'last-time-hint', text: `Points (auto-calculated): ${computePoints()}` });
+    host.appendChild(pointsHint);
+
+    host.appendChild(fieldRow('What Went Well', wentWellArea));
+    host.appendChild(fieldRow('What To Work On', workOnArea));
+
+    host.appendChild(primaryButton('Update Game Log', async () => {
+      const points = computePoints();
+      const label = `${player.name} vs ${gameState.opponent || 'Unknown'} – ${gameState.date}`;
+      const fields = {
+        [FIELDS.gameLog.opponent]: gameState.opponent,
+        [FIELDS.gameLog.player]: [playerId],
+        [FIELDS.gameLog.date]: gameState.date,
+        [FIELDS.gameLog.minutesPlayed]: gameState.minutes,
+        [FIELDS.gameLog.points]: points,
+        [FIELDS.gameLog.rebounds]: gameState.rebounds,
+        [FIELDS.gameLog.assists]: gameState.assists,
+        [FIELDS.gameLog.whatWentWell]: gameState.whatWentWell,
+        [FIELDS.gameLog.whatToWorkOn]: gameState.whatToWorkOn,
+      };
+      if (gameState.steals) fields[FIELDS.gameLog.steals] = gameState.steals;
+      if (gameState.turnovers) fields[FIELDS.gameLog.turnovers] = gameState.turnovers;
+
+      const gameOk = await updateExistingRecord({ localId: lastGame.session.localId, tableId: lastGame.session.tableId }, fields);
+      if (!gameOk) {
+        toast("Couldn't find that entry to update — try refreshing", 'warn');
+        return;
+      }
+
+      for (const removed of removedExistingRows) {
+        const resolvedId = ResolvedIds.get(removed.localId);
+        if (resolvedId) {
+          await airtableDeleteOne(removed.tableId, resolvedId);
+        } else {
+          Queue.remove(removed.localId);
+        }
+      }
+
+      const newTrackedRows = [];
+      for (const row of rows) {
+        const spot = SPOTS.find((s) => s.id === row.spotId);
+        const shotFields = {
+          [FIELDS.gameShotResults.logEntry]: `${spot ? spot.name : 'Spot'} – ${row.makes}/${row.attempts}`,
+          [FIELDS.gameShotResults.spot]: [row.spotId],
+          [FIELDS.gameShotResults.makes]: row.makes,
+          [FIELDS.gameShotResults.misses]: row.misses,
+        };
+        if (row.existingLocalId) {
+          await updateExistingRecord({ localId: row.existingLocalId, tableId: row.existingTableId }, shotFields);
+          newTrackedRows.push({ localId: row.existingLocalId, tableId: row.existingTableId, fields: shotFields });
+        } else {
+          const newLocalId = uuid();
+          Queue.add({
+            localId: newLocalId,
+            tableId: TABLES.gameShotResults.id,
+            fields: shotFields,
+            dependsOn: [{ localId: lastGame.session.localId, linkField: FIELDS.gameShotResults.game }],
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+            screenLabel: `${spot ? spot.name : 'Spot'} (${player.name} game edit)`,
+          });
+          newTrackedRows.push({ localId: newLocalId, tableId: TABLES.gameShotResults.id, fields: shotFields });
+        }
+      }
+
+      LastSaved.set('gameSession', playerId, {
+        session: { localId: lastGame.session.localId, tableId: lastGame.session.tableId, fields },
+        rows: newTrackedRows,
+        savedAt: new Date().toISOString(),
+      });
+      Sync.flush();
+      toast('Game entry updated');
+      renderGameSessionEditForm(host, player);
+    }));
+
+    stripeFieldRows(host);
+  }
+
+  renderFields();
 }
 
 // Edits the player's whole last Shooting session — every Shot Spot Result
@@ -379,23 +517,21 @@ function renderShootingSessionEditForm(host, player) {
       oninput: (e) => (row.moveDetail = e.target.value),
     });
 
-    const missesDisplay = h('div', { class: 'stepper-value', text: String(row.misses) });
-    const missesWrap = h('div', { class: 'stepper stepper-readonly' }, [missesDisplay]);
+    const attemptsDisplay = h('div', { class: 'stepper-value', text: String(row.attempts) });
+    const attemptsWrap = h('div', { class: 'stepper stepper-readonly' }, [attemptsDisplay]);
+    // Makes and Misses are the only things you actually tap as shots
+    // happen — Attempts is never a direct input, just their sum, displayed
+    // read-only. Attempts always goes up as a session progresses, same as
+    // a real court.
     const makesStep = stepper(row.makes, { min: 0, max: 99, label: 'makes' }, (v) => {
-      const clamped = Math.min(v, row.attempts);
-      if (clamped !== v) { makesStep.setValue(clamped); return; }
-      row.makes = clamped;
-      row.misses = Math.max(0, row.attempts - row.makes);
-      missesDisplay.textContent = String(row.misses);
+      row.makes = v;
+      row.attempts = row.makes + row.misses;
+      attemptsDisplay.textContent = String(row.attempts);
     });
-    const attemptsStep = stepper(row.attempts, { min: 0, max: 99, label: 'attempts' }, (v) => {
-      row.attempts = v;
-      if (row.makes > v) {
-        makesStep.setValue(v);
-      } else {
-        row.misses = Math.max(0, row.attempts - row.makes);
-        missesDisplay.textContent = String(row.misses);
-      }
+    const missesStep = stepper(row.misses, { min: 0, max: 99, label: 'misses' }, (v) => {
+      row.misses = v;
+      row.attempts = row.makes + row.misses;
+      attemptsDisplay.textContent = String(row.attempts);
     });
 
     rowWrap.appendChild(h('div', { class: 'spot-entry-header' }, [
@@ -409,8 +545,8 @@ function renderShootingSessionEditForm(host, player) {
     rowWrap.appendChild(fieldRow('Spot', spotSelect));
     rowWrap.appendChild(fieldRow('Move', moveSelect));
     rowWrap.appendChild(fieldRow('Move Detail', detailInput));
-    rowWrap.appendChild(pairedFieldRow('Attempts', attemptsStep, 'Makes', makesStep));
-    rowWrap.appendChild(fieldRow('Misses', missesWrap));
+    rowWrap.appendChild(pairedFieldRow('Makes', makesStep, 'Misses', missesStep));
+    rowWrap.appendChild(fieldRow('Attempts', attemptsWrap));
     return rowWrap;
   }
 

@@ -110,6 +110,69 @@ html, body {
 .spot-entry-title { font-weight: 700; color: var(--text-dim); font-size: 13px; text-transform: uppercase; letter-spacing: 0.03em; }
 .last-time-hint { font-size: 12px; color: var(--text-dim); margin: -10px 0 12px; }
 
+/* Court shot chart (Game Log v2) — one shared diagram, split into a colored
+   pie wedge per active player who has a shot logged at that spot (see
+   courtDiagram() in js/ui.js). Colors are set inline per-element (style=,
+   not a CSS class) since they're per-player and computed at render time —
+   the classes below only own stroke/neutral-fill/typography, never `fill`
+   for a data-bearing shape, so they never fight the inline color. */
+.court-diagram { width: 100%; max-width: 320px; display: block; margin: 0 auto 12px; touch-action: manipulation; }
+.court-line { fill: none; stroke: var(--border); stroke-width: 2; }
+.court-dashed { stroke-dasharray: 4 4; }
+.court-rim { fill: var(--border); }
+.court-spot { cursor: pointer; }
+.court-spot-circle { fill: var(--surface-2); stroke: var(--border); stroke-width: 2; }
+.court-spot-outline { fill: none; stroke: var(--border); stroke-width: 2; }
+.court-spot-active .court-spot-circle,
+.court-spot-active .court-spot-outline { stroke: var(--text); stroke-width: 3; }
+.court-spot-number { fill: #fff; stroke: #000; stroke-width: 3px; paint-order: stroke; font-size: 13px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+.court-spot-stat { font-size: 10px; text-anchor: middle; pointer-events: none; }
+
+/* Color-coded per-player cards, arranged side by side when there's room
+   (Game Log co-practice, all active players shown at once) */
+.game-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+.game-player-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 5px solid var(--player-color, var(--border));
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.game-player-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.game-player-card-name { font-weight: 800; font-size: 17px; flex: 1; }
+.game-player-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+
+/* Compact "+ Add" row for players not yet in today's game log — replaces
+   what used to be a full duplicate row of big photo tabs for players
+   already shown (and already removable) via their own card below. */
+.game-add-player-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+
+/* Shared shot-chart editor — one Attempts/Makes/Misses column per active
+   player, side by side, opened by tapping a spot on the diagram above. */
+.game-shot-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+.game-shot-editor-col {
+  border-left: 3px solid var(--player-color, var(--border));
+  padding-left: 10px;
+}
+.game-shot-editor-name { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+
+/* App shell widens for screens that lay content out side by side (Game Log
+   with 2+ players active) so it can actually use extra real estate on a
+   tablet/desktop browser instead of staying capped at phone width; reset
+   centrally in js/app.js's render() before every screen renders, so it
+   never leaks into a screen that didn't ask for it. */
+#app.wide { max-width: min(1100px, 96vw); }
+
 /* Header */
 .screen-header {
   display: flex;

@@ -1,10 +1,13 @@
 // Live Airtable schema + seeded reference data for base "Putting in the Work".
 // Pulled from the Airtable API on 2026-08-28, updated 2026-08-29 (Video URL
-// fields on Workout Logs/Templates, a 4th player) and 2026-08-30 (Move
+// fields on Workout Logs/Templates, a 4th player), 2026-08-30 (Move
 // Definitions + Shot Routine Steps tables, Routine Used / Move / Move Detail
-// fields for the shooting-screen v2 rebuild). If the base schema changes,
-// re-fetch via the Airtable API and update this file — do not guess field
-// names.
+// fields for the shooting-screen v2 rebuild), and 2026-09-03 (Game Log v2:
+// Point Value added to Spot Definitions, new Game Shot Results table, and
+// two fields — Steals, Turnovers — that already existed on Game Log in the
+// live base but had never been added here or exposed in the app). If the
+// base schema changes, re-fetch via the Airtable API and update this file —
+// do not guess field names.
 
 const BASE_ID = 'appYZdp23DOulnJwm';
 
@@ -21,6 +24,7 @@ const TABLES = {
   gameLog: { id: 'tblFeVbGugAPQkhHS', name: 'Game Log' },
   moveDefinitions: { id: 'tblTtW7Cb9ABn57T0', name: 'Move Definitions' },
   shotRoutineSteps: { id: 'tblLqzth9yqg9YRRV', name: 'Shot Routine Steps' },
+  gameShotResults: { id: 'tblhvXPh4MV96bl3X', name: 'Game Shot Results' },
 };
 
 // Field NAMES as they exist in Airtable right now (case-sensitive; used as
@@ -116,6 +120,22 @@ const FIELDS = {
     points: 'Points',
     rebounds: 'Rebounds',
     assists: 'Assists',
+    // Pre-existing on the live base but never wired up in the app until the
+    // v2 co-practice rebuild (2026-09-03) — both are plain text, not number,
+    // in Airtable, so kept as free-entry rather than steppers.
+    steals: 'Steals',
+    turnovers: 'Turnovers',
+  },
+  // Added 2026-09-03 alongside the Game Log v2 rebuild — one row per court
+  // spot shot during a real game, mirroring Shot Spot Results but linked to
+  // Game Log instead of Shooting Sessions. Powers the shot-chart entry mode
+  // and Points auto-calculated from Spot Definitions' Point Value.
+  gameShotResults: {
+    logEntry: 'Log Entry',
+    game: 'Game',
+    spot: 'Spot',
+    makes: 'Makes',
+    misses: 'Misses',
   },
 };
 
@@ -135,21 +155,27 @@ const PLAYERS = [
   { id: 'recgP5EtYuvNd96io', name: 'Age', ageGroup: 'adult', screens: ['workout', 'strength'], avatar: null },
 ];
 
+// pointValue (added 2026-09-03, mirrors the live "Point Value" field on Spot
+// Definitions) is the in-game point value of a make from that spot: 3 for
+// the classic three-point spots (corners, wings, top of key), 1 for Free
+// Throw, 2 for everything else. Used by the Game Log shot chart to
+// auto-compute Points — has no bearing on the Shooting screen, which never
+// scores shots.
 const SPOTS = [
-  { id: 'recvt7IoNGUs25crN', name: 'Left Corner', number: 1 },
-  { id: 'recPcsCe8Vfft397Y', name: 'Left Baseline', number: 2 },
-  { id: 'recPZg3xkZZMTeups', name: 'Top of Key', number: 3 },
-  { id: 'recxpTUiUwDhkuwhd', name: 'Right Baseline', number: 4 },
-  { id: 'recAgwKaHLH3DWyRn', name: 'Right Corner', number: 5 },
-  { id: 'recgRM7M8YjlOjrpz', name: 'Left Wing', number: 6 },
-  { id: 'recVQvwPZp6nxzhhg', name: 'Left Elbow', number: 7 },
-  { id: 'recWuDrGt3jQs5KOR', name: 'Free Throw', number: 8 },
-  { id: 'rec0fYXQfKksH5z7Q', name: 'Right Elbow', number: 9 },
-  { id: 'recCaPGjortnBvHBr', name: 'Right Wing', number: 10 },
-  { id: 'recH94U836VFT3zdQ', name: 'Left Mid-Paint', number: 11 },
-  { id: 'recgsSiMW9lzPpuwE', name: 'Right Mid-Paint', number: 12 },
-  { id: 'recOKWcUxOwZfEkt8', name: 'Left High Post', number: 13 },
-  { id: 'recNE7eo8TTYx1IXj', name: 'Right High Post', number: 14 },
+  { id: 'recvt7IoNGUs25crN', name: 'Left Corner', number: 1, pointValue: 3 },
+  { id: 'recPcsCe8Vfft397Y', name: 'Left Baseline', number: 2, pointValue: 2 },
+  { id: 'recPZg3xkZZMTeups', name: 'Top of Key', number: 3, pointValue: 3 },
+  { id: 'recxpTUiUwDhkuwhd', name: 'Right Baseline', number: 4, pointValue: 2 },
+  { id: 'recAgwKaHLH3DWyRn', name: 'Right Corner', number: 5, pointValue: 3 },
+  { id: 'recgRM7M8YjlOjrpz', name: 'Left Wing', number: 6, pointValue: 3 },
+  { id: 'recVQvwPZp6nxzhhg', name: 'Left Elbow', number: 7, pointValue: 2 },
+  { id: 'recWuDrGt3jQs5KOR', name: 'Free Throw', number: 8, pointValue: 1 },
+  { id: 'rec0fYXQfKksH5z7Q', name: 'Right Elbow', number: 9, pointValue: 2 },
+  { id: 'recCaPGjortnBvHBr', name: 'Right Wing', number: 10, pointValue: 3 },
+  { id: 'recH94U836VFT3zdQ', name: 'Left Mid-Paint', number: 11, pointValue: 2 },
+  { id: 'recgsSiMW9lzPpuwE', name: 'Right Mid-Paint', number: 12, pointValue: 2 },
+  { id: 'recOKWcUxOwZfEkt8', name: 'Left High Post', number: 13, pointValue: 2 },
+  { id: 'recNE7eo8TTYx1IXj', name: 'Right High Post', number: 14, pointValue: 2 },
 ];
 
 const TESTS = [

@@ -266,29 +266,24 @@ const ShootingScreen = {
         oninput: (e) => { row.moveDetail = e.target.value; persist(); },
       });
 
-      const missesDisplay = h('div', { class: 'stepper-value', text: String(row.misses) });
-      const missesWrap = h('div', { class: 'stepper stepper-readonly' }, [missesDisplay]);
+      const attemptsDisplay = h('div', { class: 'stepper-value', text: String(row.attempts) });
+      const attemptsWrap = h('div', { class: 'stepper stepper-readonly' }, [attemptsDisplay]);
 
-      // Makes can never exceed Attempts — clamp instead of independently
-      // capping at an arbitrary ceiling, since an attempt that isn't a make
-      // must show up as a miss (the real bug this fixes: misses silently
-      // left at 0 made a session look like 100% makes).
+      // Makes and Misses are the only things you actually tap as shots
+      // happen — Attempts is never a direct input, just their sum,
+      // displayed read-only. Attempts always goes up as a session
+      // progresses, exactly like it does on a real court: every logged
+      // shot is a make or a miss, and either one raises Attempts.
       const makesStep = stepper(row.makes, { min: 0, max: 99, label: 'makes' }, (v) => {
-        const clamped = Math.min(v, row.attempts);
-        if (clamped !== v) { makesStep.setValue(clamped); return; }
-        row.makes = clamped;
-        row.misses = Math.max(0, row.attempts - row.makes);
-        missesDisplay.textContent = String(row.misses);
+        row.makes = v;
+        row.attempts = row.makes + row.misses;
+        attemptsDisplay.textContent = String(row.attempts);
         persist();
       });
-      const attemptsStep = stepper(row.attempts, { min: 0, max: 99, label: 'attempts' }, (v) => {
-        row.attempts = v;
-        if (row.makes > v) {
-          makesStep.setValue(v); // clamps makes down and recomputes misses
-        } else {
-          row.misses = Math.max(0, row.attempts - row.makes);
-          missesDisplay.textContent = String(row.misses);
-        }
+      const missesStep = stepper(row.misses, { min: 0, max: 99, label: 'misses' }, (v) => {
+        row.misses = v;
+        row.attempts = row.makes + row.misses;
+        attemptsDisplay.textContent = String(row.attempts);
         persist();
       });
 
@@ -307,8 +302,8 @@ const ShootingScreen = {
       }
       rowWrap.appendChild(fieldRow('Move', moveSelect));
       rowWrap.appendChild(fieldRow('Move Detail', detailInput));
-      rowWrap.appendChild(pairedFieldRow('Attempts', attemptsStep, 'Makes', makesStep));
-      rowWrap.appendChild(fieldRow('Misses', missesWrap));
+      rowWrap.appendChild(pairedFieldRow('Makes', makesStep, 'Misses', missesStep));
+      rowWrap.appendChild(fieldRow('Attempts', attemptsWrap));
       return rowWrap;
     }
 
@@ -548,30 +543,27 @@ const ShootingScreen = {
         oninput: (e) => { editLastShot.moveDetail = e.target.value; },
       });
 
-      const missesDisplay = h('div', { class: 'stepper-value', text: String(editLastShot.misses) });
-      const missesWrap = h('div', { class: 'stepper stepper-readonly' }, [missesDisplay]);
+      const attemptsDisplay = h('div', { class: 'stepper-value', text: String(editLastShot.attempts) });
+      const attemptsWrap = h('div', { class: 'stepper stepper-readonly' }, [attemptsDisplay]);
+      // Same Makes/Misses-are-the-input, Attempts-is-derived model as the
+      // main spot rows above — Attempts always goes up as either counter
+      // rises, same as a real game.
       const makesStep = stepper(editLastShot.makes, { min: 0, max: 99, label: 'makes' }, (v) => {
-        const clamped = Math.min(v, editLastShot.attempts);
-        if (clamped !== v) { makesStep.setValue(clamped); return; }
-        editLastShot.makes = clamped;
-        editLastShot.misses = Math.max(0, editLastShot.attempts - editLastShot.makes);
-        missesDisplay.textContent = String(editLastShot.misses);
+        editLastShot.makes = v;
+        editLastShot.attempts = editLastShot.makes + editLastShot.misses;
+        attemptsDisplay.textContent = String(editLastShot.attempts);
       });
-      const attemptsStep = stepper(editLastShot.attempts, { min: 0, max: 99, label: 'attempts' }, (v) => {
-        editLastShot.attempts = v;
-        if (editLastShot.makes > v) {
-          makesStep.setValue(v);
-        } else {
-          editLastShot.misses = Math.max(0, editLastShot.attempts - editLastShot.makes);
-          missesDisplay.textContent = String(editLastShot.misses);
-        }
+      const missesStep = stepper(editLastShot.misses, { min: 0, max: 99, label: 'misses' }, (v) => {
+        editLastShot.misses = v;
+        editLastShot.attempts = editLastShot.makes + editLastShot.misses;
+        attemptsDisplay.textContent = String(editLastShot.attempts);
       });
 
       wrap.appendChild(fieldRow('Spot', spotSelect));
       wrap.appendChild(fieldRow('Move', moveSelect));
       wrap.appendChild(fieldRow('Move Detail', detailInput));
-      wrap.appendChild(pairedFieldRow('Attempts', attemptsStep, 'Makes', makesStep));
-      wrap.appendChild(fieldRow('Misses', missesWrap));
+      wrap.appendChild(pairedFieldRow('Makes', makesStep, 'Misses', missesStep));
+      wrap.appendChild(fieldRow('Attempts', attemptsWrap));
 
       wrap.appendChild(secondaryButton('Cancel', () => {
         editLastShot = null;

@@ -20,6 +20,12 @@ function render() {
     window.scrollTo(0, 0);
     return;
   }
+  // Reset the app shell's width before every screen renders — only Game
+  // Log (with 2+ players active) asks to widen it back via #app.wide, and
+  // resetting here (rather than in every screen) means a screen that never
+  // touches this can't accidentally inherit a stale wide layout left over
+  // from a previous visit to Game Log.
+  document.getElementById('app').classList.remove('wide');
   const screen = ROUTES[hash] || HomeScreen;
   screen.render(container);
   window.scrollTo(0, 0);
