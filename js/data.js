@@ -2,12 +2,17 @@
 // Pulled from the Airtable API on 2026-08-28, updated 2026-08-29 (Video URL
 // fields on Workout Logs/Templates, a 4th player), 2026-08-30 (Move
 // Definitions + Shot Routine Steps tables, Routine Used / Move / Move Detail
-// fields for the shooting-screen v2 rebuild), and 2026-09-03 (Game Log v2:
+// fields for the shooting-screen v2 rebuild), 2026-09-03 (Game Log v2:
 // Point Value added to Spot Definitions, new Game Shot Results table, and
 // two fields — Steals, Turnovers — that already existed on Game Log in the
-// live base but had never been added here or exposed in the app). If the
-// base schema changes, re-fetch via the Airtable API and update this file —
-// do not guess field names.
+// live base but had never been added here or exposed in the app), and
+// 2026-09-05 (16 new Move Definitions + two new Shot Routine Steps
+// routines — "Advanced Scoring Moves (10 makes)" and "Cuts & Screens (10
+// makes)" — added directly in Airtable per the user's move-by-move specs;
+// also mirrored into the seeded MOVES array below for offline availability,
+// same as every other growable picklist here). If the base schema changes,
+// re-fetch via the Airtable API and update this file — do not guess field
+// names.
 
 const BASE_ID = 'appYZdp23DOulnJwm';
 
@@ -143,16 +148,18 @@ const FIELDS = {
 // in the live base, not placeholders). `name` here is a display label only —
 // it does not have to match the "Name" field of the linked Player record in
 // Airtable, and deliberately doesn't (this file is public; the base isn't).
-// `screens` controls which home-screen tiles show up for that profile — one
-// player does walks, not basketball, so the basketball-specific screens
-// (shooting/benchmark/game) are hidden for that profile rather than
-// shown-but-irrelevant.
+// `screens` controls which home-screen tiles show up for that profile — a
+// narrower list (e.g. just workout/strength) hides the basketball-specific
+// tiles rather than showing them but irrelevant. All four players
+// currently track everything (see PLAYERS below); this mechanism exists
+// for whenever a player's tracked activities genuinely differ again, not
+// because any current profile needs it.
 const ALL_SCREENS = ['workout', 'strength', 'shooting', 'benchmark', 'game'];
 const PLAYERS = [
   { id: 'reclIhUYdKG4LeOkH', name: 'Mal', ageGroup: 'adult', screens: ALL_SCREENS, avatar: 'icons/players/mal.jpg' },
   { id: 'recZ4Qha8inCHDE8s', name: 'Ike', ageGroup: '12-14', screens: ALL_SCREENS, avatar: 'icons/players/ike.jpg' },
   { id: 'recuJGpFhmRW4V1GK', name: 'Khi', ageGroup: '9-11', screens: ALL_SCREENS, avatar: 'icons/players/khi.jpg' },
-  { id: 'recgP5EtYuvNd96io', name: 'Age', ageGroup: 'adult', screens: ['workout', 'strength'], avatar: null },
+  { id: 'recgP5EtYuvNd96io', name: 'Age', ageGroup: 'adult', screens: ALL_SCREENS, avatar: null },
 ];
 
 // pointValue (added 2026-09-03, mirrors the live "Point Value" field on Spot
@@ -205,6 +212,24 @@ const MOVES = [
   { id: 'recgCh2Uz8Ou3XApG', name: 'Drive Pull-Up (2-Dribble)', complexity: 'Moderate' },
   { id: 'recB1W0gysXwyoRxV', name: 'Pull-Up (3-Dribble Approach)', complexity: 'Complex' },
   { id: 'rec70apYTZD3R2qTd', name: 'Between-the-Legs Jumper (4-Dribble)', complexity: 'Complex' },
+  // Added 2026-09-05 for the "Advanced Scoring Moves (10 makes)" and "Cuts
+  // & Screens (10 makes)" routines below.
+  { id: 'recEE5aWITnaCcJBm', name: 'Catch-and-Sweep Pull-Up', complexity: 'Complex' },
+  { id: 'rec0YuUdtOrvX7GxT', name: 'In-and-Out Crossover Pull-Up', complexity: 'Complex' },
+  { id: 'reclfAJjJDI4RLCfq', name: 'Between-the-Legs Hesitation Snatchback', complexity: 'Complex' },
+  { id: 'recYhnMpFeqiC0z1t', name: 'Spin Move into Floating Runner', complexity: 'Complex' },
+  { id: 'recbN49WJapVogb87', name: 'Jab Step + Cross-Jab + Step-Back 3-Pointer', complexity: 'Complex' },
+  { id: 'recmQftnDwRf5uB2Z', name: 'Heavy Hesitation Drive to Euro-Step', complexity: 'Complex' },
+  { id: 'rec69GGN0DcUE0o3J', name: 'Drive-and-Kick Pump Fake + Side-Step Jumper', complexity: 'Complex' },
+  { id: 'recSSOayua2COfXXS', name: 'Post Up / High Elbow Jab + Pump Fake + Up-and-Under', complexity: 'Complex' },
+  { id: 'recFooYfrH5uOXyJF', name: 'L-Cut', complexity: 'Simple' },
+  { id: 'recfQNqdLxwcyu4zX', name: 'V-Cut', complexity: 'Simple' },
+  { id: 'rec7F61kZZwhwI5ZW', name: 'Backdoor Cut', complexity: 'Moderate' },
+  { id: 'recahQoyDoHsri2jr', name: 'Flash Cut', complexity: 'Moderate' },
+  { id: 'recZw2Co8lDuxB3TP', name: 'Pick-and-Roll', complexity: 'Moderate' },
+  { id: 'reclg22MnlMvu4q1C', name: 'Pick-and-Pop', complexity: 'Moderate' },
+  { id: 'recj275otOyRQGVhb', name: 'Reject the Screen', complexity: 'Moderate' },
+  { id: 'recHbpORuoC624NGn', name: 'Slip the Screen', complexity: 'Moderate' },
 ];
 
 // Auto-applied to a freshly-created Shooting draft so the screen opens

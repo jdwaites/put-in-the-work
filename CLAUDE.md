@@ -1,11 +1,10 @@
 # Putting in the Work
 
-A basketball/weightlifting training tracker for a family of four players
-(three kids at different age brackets, one adult who does walks instead of
-basketball) — used to log workouts, strength sets, shooting practice,
-athletic benchmarks, and game performance. Analysis happens outside this
-repo (Claude + Airtable's native charts); this repo is only the data
-capture layer.
+A basketball/weightlifting training tracker for a family of four players —
+used to log workouts, strength sets, shooting practice, athletic
+benchmarks, and game performance. Analysis happens outside this repo
+(Claude + Airtable's native charts); this repo is only the data capture
+layer.
 
 Player display names in `js/data.js` are pseudonyms, not real names/emails —
 this repo is public on GitHub, the linked Airtable base is not. See the
@@ -95,8 +94,10 @@ through the local-first queue in `js/sync.js`, unrelated to this cache.
   shooting, benchmark, game, settings). Each is a plain object with a
   `render(container)` method; `js/app.js` is a minimal hash-based router.
   Home filters its tiles by the current player's `screens` list in
-  `js/data.js` (the walks-focused profile only sees Workout + Strength — no
-  basketball-specific screens).
+  `js/data.js` (or a stored per-player override — see `effectiveScreens()`
+  in `js/storage.js`); as of 2026-09-04 all four players track everything
+  (`ALL_SCREENS`), so this filtering exists for a future profile that might
+  need a narrower set, not because any current player does.
 
 ## Known simplifications (not gaps to "fix" without asking)
 
@@ -121,8 +122,19 @@ through the local-first queue in `js/sync.js`, unrelated to this cache.
 ## Players table / schema additions since initial build (2026-08-29)
 
 - Added a 4th player (`recgP5EtYuvNd96io`, Age Group "adult", displayed as
-  "Age" in `js/data.js`), who does walks rather than basketball — their
-  `screens` list only includes `workout` and `strength`.
+  "Age" in `js/data.js`, real name Adrienne). Originally walks-focused with
+  `screens` limited to `workout`/`strength`; changed 2026-09-04 to
+  `ALL_SCREENS` (same as every other player) at the user's request, so she
+  now tracks shooting/benchmark/game too. If a device already completed
+  onboarding for her with the old default accepted as-is, no
+  `PlayerScreenOverrides` entry would have been written (onboarding only
+  stores an override when the selection *differs* from the default — see
+  `js/screens/onboarding.js`), so this data.js change takes effect
+  immediately there. If onboarding was ever completed with a *deliberately
+  narrower* selection for her, that stored override in
+  `pw_player_screen_overrides` (localStorage) would still take precedence
+  over the new default and needs clearing (or re-running onboarding for
+  her) on that specific device.
 - All four `PLAYERS` display names in `js/data.js` are pseudonyms chosen to
   keep this public repo from pairing real first names with ages. The
   Airtable base's own Player "Name" field still has the real names — that's
@@ -388,7 +400,7 @@ order — so a given player's card/wedges are always the same color across
 visits, regardless of who else is active or what order they were added.
 
 **App shell widens for this layout.** `#app` gets a `wide` class
-(`max-width: min(1100px, 96vw)`) whenever Game Log has 2+ players active,
+(`max-width: min(1100px, 100vw)`) whenever Game Log has 2+ players active,
 toggled directly in `js/screens/game.js`, so the side-by-side grid actually
 gets real estate on a tablet/desktop browser instead of staying capped at
 the app's normal 480px phone width. This is reset centrally in `js/app.js`'s
@@ -397,7 +409,31 @@ rather than in each screen, specifically so a stale wide layout from a
 previous Game Log visit can never leak into a screen that never asked for
 it — if another screen ever wants this same treatment, it should add the
 `wide` class itself the same way, not rely on a prior screen having left it
-on.
+on. Deliberately `100vw`, not a smaller percentage — an earlier version
+used `96vw` for desktop breathing room, but on a phone (see below, the
+primary way this screen is actually used) shaving off even that 4% was
+enough to push the two-column card grid back down to one column, working
+directly against the whole point of widening in the first place. `#screen`'s
+own 16px padding already keeps content off the phone's edges, so `#app`
+doesn't need a margin of its own on top of that.
+
+**Card/stepper sizing is tuned for two columns on an actual phone
+(2026-09-04).** `.game-cards-grid`'s column minimum is 165px (down from an
+initial 260px — about a 37% cut), specifically so two cards fit side by
+side on a ~375px+ phone screen with `#screen`'s 32px of combined padding
+accounted for: `165×2 + 10px gap = 340px`, comfortably under what's left on
+an iPhone SE/mini-class phone and up. Below roughly 360px of viewport width
+it still falls back to one column via `auto-fit` — a graceful, unbroken
+degradation, not a bug, on the very smallest devices. Steppers inside
+`.game-player-card` and `.game-shot-editor-col` shrink to 44px tap targets
+(from the app's usual 56px) to fit that width — 44px is the standard
+minimum comfortable touch-target size, so this isn't a usability
+regression, just tighter than the generous default. Text inputs keep their
+16px font size untouched throughout — dropping below 16px on any focusable
+input is what triggers iOS Safari's auto-zoom-on-focus, which would make
+the two-column layout actively worse to use, not better. These overrides
+are scoped to Game Log's own classes only; every other screen (Workout,
+Strength, Benchmark, Shooting) keeps the full-size steppers.
 
 **No more big photo-tab row for active players.** The first version of this
 redesign kept Shooting's tab-switcher look — a row of large avatar buttons,

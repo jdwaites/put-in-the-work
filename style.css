@@ -129,11 +129,18 @@ html, body {
 .court-spot-stat { font-size: 10px; text-anchor: middle; pointer-events: none; }
 
 /* Color-coded per-player cards, arranged side by side when there's room
-   (Game Log co-practice, all active players shown at once) */
+   (Game Log co-practice, all active players shown at once). Column
+   minimum is deliberately narrow (~37% under a plain single-column phone
+   layout) because phone-in-hand at a game, with two kids' cards next to
+   each other, is the primary way this screen gets used — see the
+   .game-player-card/.game-shot-editor-col overrides below for how the
+   fields inside stay usable at that width (smaller but still ≥44px tap
+   targets; text inputs keep their 16px font untouched, since anything
+   smaller triggers iOS Safari's auto-zoom-on-focus). */
 .game-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+  gap: 10px;
   align-items: start;
   margin-bottom: 16px;
 }
@@ -142,27 +149,36 @@ html, body {
   border: 1px solid var(--border);
   border-left: 5px solid var(--player-color, var(--border));
   border-radius: var(--radius);
-  padding: 14px;
+  padding: 10px;
 }
 .game-player-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-.game-player-card-name { font-weight: 800; font-size: 17px; flex: 1; }
+.game-player-card-name { font-weight: 800; font-size: 16px; flex: 1; }
 .game-player-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+
+/* Narrower steppers/fields just within the side-by-side cards and the
+   shared shot-chart editor columns below — everywhere ELSE in the app
+   (Workout, Strength, Benchmark, Shooting) keeps the full 56px tap
+   targets, since only Game Log's cards need to be this compact. 44px
+   still clears the standard minimum comfortable touch-target size. */
+.game-player-card .stepper-btn, .game-shot-editor-col .stepper-btn { width: 44px; height: 44px; font-size: 20px; }
+.game-player-card .stepper-value, .game-shot-editor-col .stepper-value { font-size: 16px; }
+.game-player-card .text-input, .game-player-card .native-select, .game-player-card .text-area { padding: 10px; }
 
 /* Compact "+ Add" row for players not yet in today's game log — replaces
    what used to be a full duplicate row of big photo tabs for players
    already shown (and already removable) via their own card below. */
 .game-add-player-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 
-/* Shared shot-chart editor — one Attempts/Makes/Misses column per active
-   player, side by side, opened by tapping a spot on the diagram above. */
+/* Shared shot-chart editor — one Makes/Misses column per active player,
+   side by side, opened by tapping a spot on the diagram above. */
 .game-shot-editor-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
 }
 .game-shot-editor-col {
   border-left: 3px solid var(--player-color, var(--border));
-  padding-left: 10px;
+  padding-left: 8px;
 }
 .game-shot-editor-name { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
 
@@ -171,7 +187,11 @@ html, body {
    tablet/desktop browser instead of staying capped at phone width; reset
    centrally in js/app.js's render() before every screen renders, so it
    never leaks into a screen that didn't ask for it. */
-#app.wide { max-width: min(1100px, 96vw); }
+/* 100vw here, not a smaller "breathing room" percentage — on a phone
+   (the primary way this screen gets used) shaving even 4% off already
+   works against fitting two columns; #screen's own 16px padding already
+   keeps content off the edges, so #app doesn't need its own margin too. */
+#app.wide { max-width: min(1100px, 100vw); }
 
 /* Header */
 .screen-header {
