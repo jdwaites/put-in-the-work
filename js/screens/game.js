@@ -170,7 +170,7 @@ const GameScreen = {
       if (!spot) return null;
       const wrap = h('div', { class: 'spot-entry-row' });
       wrap.appendChild(h('div', { class: 'spot-entry-header' }, [
-        h('div', { class: 'spot-entry-title', text: `Spot ${spot.number} – ${spot.name} (${spot.pointValue}pt)` }),
+        h('div', { class: 'spot-entry-title', text: `Spot ${spot.number} – ${spotDisplayName(spot)} (${spot.pointValue}pt)` }),
         h('button', { class: 'btn-remove', type: 'button', 'aria-label': 'Close this spot', onclick: () => {
           activeSpotId = null;
           renderChart();
@@ -258,7 +258,7 @@ const GameScreen = {
           };
         });
         return {
-          id: s.id, number: s.number, name: s.name,
+          id: s.id, number: s.number, name: spotDisplayName(s),
           x: coords.x, y: coords.y,
           isActive: activeSpotId === s.id,
           series,

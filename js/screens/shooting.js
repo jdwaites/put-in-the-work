@@ -239,7 +239,7 @@ const ShootingScreen = {
       }
 
       const spotSelect = selectEl(
-        SPOTS.map((s) => ({ value: s.id, label: s.name })),
+        SPOTS.map((s) => ({ value: s.id, label: spotDisplayName(s) })),
         row.spotId,
         (v) => { row.spotId = v; persist(); }
       );
@@ -527,7 +527,7 @@ const ShootingScreen = {
       wrap.appendChild(h('h3', { class: 'section-heading', text: 'Edit last shot' }));
 
       const spotSelect = selectEl(
-        SPOTS.map((s) => ({ value: s.id, label: s.name })),
+        SPOTS.map((s) => ({ value: s.id, label: spotDisplayName(s) })),
         editLastShot.spotId,
         (v) => { editLastShot.spotId = v; }
       );

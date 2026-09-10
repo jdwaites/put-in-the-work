@@ -267,7 +267,7 @@ function renderPersonalRecords(body, player, screens, data) {
       const list = h('div', { class: 'recent-list' });
       shotPRs.forEach(({ spot, pr }) => {
         list.appendChild(h('div', { class: 'spot-row' }, [
-          h('div', { class: 'spot-row-name', text: spot.name }),
+          h('div', { class: 'spot-row-name', text: spotDisplayName(spot) }),
           h('div', { class: 'spot-row-stats', text: `${Math.round(pr.pct)}% (${pr.makes}/${pr.attempts}) – ${pr.date}` }),
         ]));
       });
@@ -337,14 +337,14 @@ function renderTrendGraphs(body, player, screens, data) {
         const series = toSeries(spotGroups);
         const last = series[series.length - 1];
         const wrap = h('div', { class: 'spot-entry-row' });
-        wrap.appendChild(h('div', { class: 'field-label', text: `${spot.name} — ${Math.round(last.pct)}% last time (${series.length} session${series.length === 1 ? '' : 's'})` }));
+        wrap.appendChild(h('div', { class: 'field-label', text: `${spotDisplayName(spot)} — ${Math.round(last.pct)}% last time (${series.length} session${series.length === 1 ? '' : 's'})` }));
         wrap.appendChild(lineChartSVG(series.map((s) => s.pct), { min: 0, max: 100 }));
         body.appendChild(wrap);
       } else {
         // Real move variety at this spot — split so an easy Catch & Shoot
         // and a hard Step-Back Jumper don't blend into one misleading
         // average that looks flat even if each move's own trend is moving.
-        body.appendChild(h('div', { class: 'field-label', text: `${spot.name} — by move (varies enough to show separately)` }));
+        body.appendChild(h('div', { class: 'field-label', text: `${spotDisplayName(spot)} — by move (varies enough to show separately)` }));
         establishedMoves
           .sort((a, b) => b[1].length - a[1].length) // most-practiced move first
           .forEach(([moveKey, groups]) => {
@@ -430,7 +430,7 @@ function renderSuggestedFocus(body, player, screens, data) {
     return;
   }
   body.appendChild(h('div', { class: 'age-hint' }, [
-    h('div', { text: `🎯 ${suggestion.spot.name}` }),
+    h('div', { text: `🎯 ${spotDisplayName(suggestion.spot)}` }),
     h('div', { text: suggestion.detail }),
   ]));
 }
@@ -489,8 +489,8 @@ function sessionSummaryText(player, summary) {
     summary.date,
     `Overall: ${Math.round(summary.overallPct)}% (${summary.totalMakes}/${summary.totalMakes + summary.totalMisses})`,
   ];
-  if (summary.best) lines.push(`Best: ${summary.best.spot.name} (${Math.round(summary.best.pct)}%)`);
-  if (summary.worst) lines.push(`Focus for next time: ${summary.worst.spot.name} (${Math.round(summary.worst.pct)}%)`);
+  if (summary.best) lines.push(`Best: ${spotDisplayName(summary.best.spot)} (${Math.round(summary.best.pct)}%)`);
+  if (summary.worst) lines.push(`Focus for next time: ${spotDisplayName(summary.worst.spot)} (${Math.round(summary.worst.pct)}%)`);
   return lines.join('\n');
 }
 

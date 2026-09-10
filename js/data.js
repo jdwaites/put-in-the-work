@@ -168,22 +168,39 @@ const PLAYERS = [
 // Throw, 2 for everything else. Used by the Game Log shot chart to
 // auto-compute Points — has no bearing on the Shooting screen, which never
 // scores shots.
+//
+// shotType (added 2026-09-04) is a coarser shot-type bucket used only for
+// display labels and any type-based analysis/grouping — 'three' | 'layup' |
+// 'free-throw' | 'jumper'. Independent of pointValue: Left/Right Mid-Paint
+// are worth 2 points same as any other mid-range spot, but they represent
+// layup attempts, not jump shots, so they're tagged 'layup' rather than
+// falling into the generic 'jumper' bucket every other 2pt spot gets.
 const SPOTS = [
-  { id: 'recvt7IoNGUs25crN', name: 'Left Corner', number: 1, pointValue: 3 },
-  { id: 'recPcsCe8Vfft397Y', name: 'Left Baseline', number: 2, pointValue: 2 },
-  { id: 'recPZg3xkZZMTeups', name: 'Top of Key', number: 3, pointValue: 3 },
-  { id: 'recxpTUiUwDhkuwhd', name: 'Right Baseline', number: 4, pointValue: 2 },
-  { id: 'recAgwKaHLH3DWyRn', name: 'Right Corner', number: 5, pointValue: 3 },
-  { id: 'recgRM7M8YjlOjrpz', name: 'Left Wing', number: 6, pointValue: 3 },
-  { id: 'recVQvwPZp6nxzhhg', name: 'Left Elbow', number: 7, pointValue: 2 },
-  { id: 'recWuDrGt3jQs5KOR', name: 'Free Throw', number: 8, pointValue: 1 },
-  { id: 'rec0fYXQfKksH5z7Q', name: 'Right Elbow', number: 9, pointValue: 2 },
-  { id: 'recCaPGjortnBvHBr', name: 'Right Wing', number: 10, pointValue: 3 },
-  { id: 'recH94U836VFT3zdQ', name: 'Left Mid-Paint', number: 11, pointValue: 2 },
-  { id: 'recgsSiMW9lzPpuwE', name: 'Right Mid-Paint', number: 12, pointValue: 2 },
-  { id: 'recOKWcUxOwZfEkt8', name: 'Left High Post', number: 13, pointValue: 2 },
-  { id: 'recNE7eo8TTYx1IXj', name: 'Right High Post', number: 14, pointValue: 2 },
+  { id: 'recvt7IoNGUs25crN', name: 'Left Corner', number: 1, pointValue: 3, shotType: 'three' },
+  { id: 'recPcsCe8Vfft397Y', name: 'Left Baseline', number: 2, pointValue: 2, shotType: 'jumper' },
+  { id: 'recPZg3xkZZMTeups', name: 'Top of Key', number: 3, pointValue: 3, shotType: 'three' },
+  { id: 'recxpTUiUwDhkuwhd', name: 'Right Baseline', number: 4, pointValue: 2, shotType: 'jumper' },
+  { id: 'recAgwKaHLH3DWyRn', name: 'Right Corner', number: 5, pointValue: 3, shotType: 'three' },
+  { id: 'recgRM7M8YjlOjrpz', name: 'Left Wing', number: 6, pointValue: 3, shotType: 'three' },
+  { id: 'recVQvwPZp6nxzhhg', name: 'Left Elbow', number: 7, pointValue: 2, shotType: 'jumper' },
+  { id: 'recWuDrGt3jQs5KOR', name: 'Free Throw', number: 8, pointValue: 1, shotType: 'free-throw' },
+  { id: 'rec0fYXQfKksH5z7Q', name: 'Right Elbow', number: 9, pointValue: 2, shotType: 'jumper' },
+  { id: 'recCaPGjortnBvHBr', name: 'Right Wing', number: 10, pointValue: 3, shotType: 'three' },
+  { id: 'recH94U836VFT3zdQ', name: 'Left Mid-Paint', number: 11, pointValue: 2, shotType: 'layup' },
+  { id: 'recgsSiMW9lzPpuwE', name: 'Right Mid-Paint', number: 12, pointValue: 2, shotType: 'layup' },
+  { id: 'recOKWcUxOwZfEkt8', name: 'Left High Post', number: 13, pointValue: 2, shotType: 'jumper' },
+  { id: 'recNE7eo8TTYx1IXj', name: 'Right High Post', number: 14, pointValue: 2, shotType: 'jumper' },
 ];
+
+// Human-facing label for a spot, wherever a shot chart / spot picker shows
+// one — appends "(Layup)" for the two mid-paint spots so they're never
+// mistaken for a generic mid-range jumper. The one thing this deliberately
+// does NOT touch is the composed "Log Entry" text written to Airtable
+// (e.g. "Left Mid-Paint – 4/5") — that's a record identifier, not a label
+// a user reads on an entry screen, so it stays as the bare spot name.
+function spotDisplayName(spot) {
+  return spot.shotType === 'layup' ? `${spot.name} (Layup)` : spot.name;
+}
 
 const TESTS = [
   { id: 'recqzPy7g5b1mLL3A', name: 'Vertical Jump', unit: 'inches', category: 'Speed' },

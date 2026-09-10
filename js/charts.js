@@ -119,8 +119,8 @@ function shotChartSVG(stats) {
 
     const title = document.createElementNS(NS, 'title');
     title.textContent = pct === null
-      ? `${spot.name}: not shot`
-      : `${spot.name}: ${Math.round(pct)}% (${attempts} attempts)`;
+      ? `${spotDisplayName(spot)}: not shot`
+      : `${spotDisplayName(spot)}: ${Math.round(pct)}% (${attempts} attempts)`;
     g.appendChild(title);
 
     svg.appendChild(g);

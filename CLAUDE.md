@@ -122,7 +122,7 @@ through the local-first queue in `js/sync.js`, unrelated to this cache.
 ## Players table / schema additions since initial build (2026-08-29)
 
 - Added a 4th player (`recgP5EtYuvNd96io`, Age Group "adult", displayed as
-  "Age" in `js/data.js`, real name Adrienne). Originally walks-focused with
+  "Age" in `js/data.js`). Originally walks-focused with
   `screens` limited to `workout`/`strength`; changed 2026-09-04 to
   `ALL_SCREENS` (same as every other player) at the user's request, so she
   now tracks shooting/benchmark/game too. If a device already completed
@@ -469,6 +469,31 @@ everything, listing whichever players actually have data) refreshed via
 `renderSubmitBar()` alongside every field handler across both the chart and
 each card, since typing into any of them can change who's eligible to
 submit.
+
+## Shot type vs. point value (2026-09-04)
+
+`SPOTS` in `js/data.js` carries two independent classifications per spot —
+don't conflate them:
+- `pointValue` — the in-game score for a make (2 or 3, 1 for Free Throw).
+  Purely scoring; used only by the Game Log Points calculation.
+- `shotType` — `'three' | 'layup' | 'free-throw' | 'jumper'`, a coarser
+  bucket used purely for display labels and any type-based analysis. Left
+  Mid-Paint and Right Mid-Paint are `pointValue: 2` (same as any other
+  mid-range spot) but `shotType: 'layup'`, since they represent layup
+  attempts, not jump shots — two spots can share a point value while being
+  a completely different shot type.
+
+`spotDisplayName(spot)` (also in `data.js`) is the single place that turns
+this into a label: appends "(Layup)" when `shotType === 'layup'`, otherwise
+returns the bare name. Every spot picker/dropdown (Shooting screen, both
+Edit Last Entry tabs) and every shot chart (Game Log's live court diagram,
+Reports' shot chart and trend/PR/suggested-focus text) route spot labels
+through this function rather than reading `spot.name` directly — if a new
+spot-label surface gets added later, it needs to call `spotDisplayName()`
+too, or it'll silently show mid-paint layups as generic "jumpers" again.
+The one deliberate exception is the composed "Log Entry" text written to
+Airtable (e.g. "Left Mid-Paint – 4/5") — that's a record identifier, not a
+label a user reads on screen, so it stays as the bare spot name.
 
 ## Testing
 

@@ -313,7 +313,7 @@ function renderGameSessionEditForm(host, player) {
   function renderRow(row, idx) {
     const rowWrap = h('div', { class: 'spot-entry-row' + (idx % 2 === 1 ? ' spot-entry-row-alt' : '') });
 
-    const spotSelect = selectEl(SPOTS.map((s) => ({ value: s.id, label: `${s.name} (${s.pointValue}pt)` })), row.spotId, (v) => { row.spotId = v; renderFields(); });
+    const spotSelect = selectEl(SPOTS.map((s) => ({ value: s.id, label: `${spotDisplayName(s)} (${s.pointValue}pt)` })), row.spotId, (v) => { row.spotId = v; renderFields(); });
 
     const attemptsDisplay = h('div', { class: 'stepper-value', text: String(row.attempts) });
     const attemptsWrap = h('div', { class: 'stepper stepper-readonly' }, [attemptsDisplay]);
@@ -509,7 +509,7 @@ function renderShootingSessionEditForm(host, player) {
   function renderRow(row, idx) {
     const rowWrap = h('div', { class: 'spot-entry-row' + (idx % 2 === 1 ? ' spot-entry-row-alt' : '') });
 
-    const spotSelect = selectEl(SPOTS.map((s) => ({ value: s.id, label: s.name })), row.spotId, (v) => (row.spotId = v));
+    const spotSelect = selectEl(SPOTS.map((s) => ({ value: s.id, label: spotDisplayName(s) })), row.spotId, (v) => (row.spotId = v));
     const moveOptions = [{ value: '', label: 'Select a move…' }, ...moves.map((m) => ({ value: m.id, label: m.name }))];
     const moveSelect = selectEl(moveOptions, row.moveId || '', (v) => (row.moveId = v));
     const detailInput = h('input', {
