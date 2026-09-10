@@ -42,8 +42,8 @@ const GAME_SPOT_COORDS = {
   recWuDrGt3jQs5KOR: { x: 150, y: 165 },  // Free Throw
   rec0fYXQfKksH5z7Q: { x: 192, y: 165 },  // Right Elbow
   recCaPGjortnBvHBr: { x: 245, y: 110 },  // Right Wing
-  recH94U836VFT3zdQ: { x: 122, y: 225 },  // Left Mid-Paint
-  recgsSiMW9lzPpuwE: { x: 178, y: 225 },  // Right Mid-Paint
+  recH94U836VFT3zdQ: { x: 122, y: 258 },  // Left Layup — shifted down from mid-paint toward the rim
+  recgsSiMW9lzPpuwE: { x: 178, y: 258 },  // Right Layup — shifted down from mid-paint toward the rim
   recOKWcUxOwZfEkt8: { x: 124, y: 195 },  // Left High Post
   recNE7eo8TTYx1IXj: { x: 176, y: 195 },  // Right High Post
 };

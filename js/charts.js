@@ -66,8 +66,8 @@ const SHOT_CHART_POSITIONS = {
   recWuDrGt3jQs5KOR: { x: 95, y: 100 },  // Free Throw
   rec0fYXQfKksH5z7Q: { x: 120, y: 100 }, // Right Elbow
   recCaPGjortnBvHBr: { x: 158, y: 110 }, // Right Wing
-  recH94U836VFT3zdQ: { x: 80, y: 140 },  // Left Mid-Paint
-  recgsSiMW9lzPpuwE: { x: 110, y: 140 }, // Right Mid-Paint
+  recH94U836VFT3zdQ: { x: 80, y: 150 },  // Left Layup — shifted down from mid-paint toward the rim
+  recgsSiMW9lzPpuwE: { x: 110, y: 150 }, // Right Layup — shifted down from mid-paint toward the rim
   recOKWcUxOwZfEkt8: { x: 76, y: 115 },  // Left High Post
   recNE7eo8TTYx1IXj: { x: 114, y: 115 }, // Right High Post
 };

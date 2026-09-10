@@ -175,6 +175,12 @@ const PLAYERS = [
 // are worth 2 points same as any other mid-range spot, but they represent
 // layup attempts, not jump shots, so they're tagged 'layup' rather than
 // falling into the generic 'jumper' bucket every other 2pt spot gets.
+//
+// displayName (added 2026-09-04) overrides `name` for on-screen labels only
+// — the live Spot Definitions record is still named "Left/Right Mid-Paint"
+// in Airtable (not renamed there, per the "don't restructure structural
+// data casually" rule), but the app now calls these spots "Left/Right
+// Layup" everywhere a user reads a label. See spotDisplayName() below.
 const SPOTS = [
   { id: 'recvt7IoNGUs25crN', name: 'Left Corner', number: 1, pointValue: 3, shotType: 'three' },
   { id: 'recPcsCe8Vfft397Y', name: 'Left Baseline', number: 2, pointValue: 2, shotType: 'jumper' },
@@ -186,20 +192,20 @@ const SPOTS = [
   { id: 'recWuDrGt3jQs5KOR', name: 'Free Throw', number: 8, pointValue: 1, shotType: 'free-throw' },
   { id: 'rec0fYXQfKksH5z7Q', name: 'Right Elbow', number: 9, pointValue: 2, shotType: 'jumper' },
   { id: 'recCaPGjortnBvHBr', name: 'Right Wing', number: 10, pointValue: 3, shotType: 'three' },
-  { id: 'recH94U836VFT3zdQ', name: 'Left Mid-Paint', number: 11, pointValue: 2, shotType: 'layup' },
-  { id: 'recgsSiMW9lzPpuwE', name: 'Right Mid-Paint', number: 12, pointValue: 2, shotType: 'layup' },
+  { id: 'recH94U836VFT3zdQ', name: 'Left Mid-Paint', number: 11, pointValue: 2, shotType: 'layup', displayName: 'Left Layup' },
+  { id: 'recgsSiMW9lzPpuwE', name: 'Right Mid-Paint', number: 12, pointValue: 2, shotType: 'layup', displayName: 'Right Layup' },
   { id: 'recOKWcUxOwZfEkt8', name: 'Left High Post', number: 13, pointValue: 2, shotType: 'jumper' },
   { id: 'recNE7eo8TTYx1IXj', name: 'Right High Post', number: 14, pointValue: 2, shotType: 'jumper' },
 ];
 
 // Human-facing label for a spot, wherever a shot chart / spot picker shows
-// one — appends "(Layup)" for the two mid-paint spots so they're never
-// mistaken for a generic mid-range jumper. The one thing this deliberately
-// does NOT touch is the composed "Log Entry" text written to Airtable
-// (e.g. "Left Mid-Paint – 4/5") — that's a record identifier, not a label
-// a user reads on an entry screen, so it stays as the bare spot name.
+// one — uses `displayName` when a spot has one, otherwise the bare `name`.
+// The one thing this deliberately does NOT touch is the composed "Log
+// Entry" text written to Airtable (e.g. "Left Mid-Paint – 4/5") — that's a
+// record identifier, not a label a user reads on an entry screen, so it
+// stays as the bare spot name from Airtable.
 function spotDisplayName(spot) {
-  return spot.shotType === 'layup' ? `${spot.name} (Layup)` : spot.name;
+  return spot.displayName || spot.name;
 }
 
 const TESTS = [

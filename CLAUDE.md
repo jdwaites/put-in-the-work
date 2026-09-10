@@ -484,16 +484,29 @@ don't conflate them:
   a completely different shot type.
 
 `spotDisplayName(spot)` (also in `data.js`) is the single place that turns
-this into a label: appends "(Layup)" when `shotType === 'layup'`, otherwise
-returns the bare name. Every spot picker/dropdown (Shooting screen, both
-Edit Last Entry tabs) and every shot chart (Game Log's live court diagram,
-Reports' shot chart and trend/PR/suggested-focus text) route spot labels
-through this function rather than reading `spot.name` directly — if a new
-spot-label surface gets added later, it needs to call `spotDisplayName()`
-too, or it'll silently show mid-paint layups as generic "jumpers" again.
+this into a label: returns `spot.displayName` when set, otherwise the bare
+`spot.name`. The two layup spots have `displayName: 'Left/Right Layup'` —
+the live Spot Definitions records in Airtable are still named "Left/Right
+Mid-Paint" (not renamed there, per the "don't restructure structural data
+casually" rule), so this is purely an app-side label override. Every spot
+picker/dropdown (Shooting screen, both Edit Last Entry tabs) and every
+shot chart (Game Log's live court diagram, Reports' shot chart and
+trend/PR/suggested-focus text) route spot labels through this function
+rather than reading `spot.name` directly — if a new spot-label surface
+gets added later, it needs to call `spotDisplayName()` too, or it'll
+silently show "Left/Right Mid-Paint" instead of "Left/Right Layup" again.
 The one deliberate exception is the composed "Log Entry" text written to
 Airtable (e.g. "Left Mid-Paint – 4/5") — that's a record identifier, not a
 label a user reads on screen, so it stays as the bare spot name.
+
+The two layup spots' positions on both shot charts (`GAME_SPOT_COORDS` in
+`js/screens/game.js`, `SHOT_CHART_POSITIONS` in `js/charts.js`) were also
+shifted down (closer to the rim) from their original "mid-paint" position,
+since a layup happens right at the basket, not out at mid-range. Both
+charts are hand-placed illustrative coordinates, not survey-accurate court
+geometry — if the chart's overall proportions ever change, re-eyeball
+these two against the rim/backboard graphic rather than assuming the old
+offsets still read as "near the basket."
 
 ## Testing
 
