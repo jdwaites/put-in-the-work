@@ -317,8 +317,20 @@ contributes 0 points from the chart.
 Also surfaced by this rebuild: **Steals** and **Turnovers** already existed
 as fields on the live Game Log table but had never been added to
 `FIELDS.gameLog` or exposed in the app — a genuine schema-doc drift, not a
-new addition. Both are `singleLineText` in Airtable (not number), so they
-render as free-entry text inputs here, not steppers.
+new addition. Both are `singleLineText` in Airtable (not number) — that
+was originally used as the excuse to render them as free-entry text inputs
+instead of steppers, but that read as "not a real counter" next to
+Minutes/Rebounds/Assists (2026-09-10: converted to real `stepper()`
+inputs, matching every other counting stat on this screen and in Edit Last
+Entry's Game tab). The field's storage type didn't change — Airtable still
+has it as text — only the *input widget* did: the stepper's numeric value
+is `String()`-ified at submit time (`js/screens/game.js`'s `doSubmit`,
+`js/screens/edit-last.js`'s Game save handler), and parsed back with
+`parseInt(..., 10) || 0` when loading an existing value into the edit
+form's stepper. Written **unconditionally** now (including an explicit
+0), same as Minutes/Rebounds/Assists — a real "0 steals" is a deliberately
+counted stat, not "field left blank," so it shouldn't silently vanish from
+the record the way the old free-text-if-truthy check made it do.
 
 Co-practice submit/edit follow the same conventions as Shooting v2:
 `GameDrafts.clear()` fires immediately on successful local queueing, not

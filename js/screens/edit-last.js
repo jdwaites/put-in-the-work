@@ -281,8 +281,10 @@ function renderGameSessionEditForm(host, player) {
     minutes: gf[FIELDS.gameLog.minutesPlayed] ?? 0,
     rebounds: gf[FIELDS.gameLog.rebounds] ?? 0,
     assists: gf[FIELDS.gameLog.assists] ?? 0,
-    steals: gf[FIELDS.gameLog.steals] || '',
-    turnovers: gf[FIELDS.gameLog.turnovers] || '',
+    // Stored as singleLineText on the live base ("2", not 2) — parse back to
+    // a number for the stepper; falls back to 0 for blank/non-numeric text.
+    steals: parseInt(gf[FIELDS.gameLog.steals], 10) || 0,
+    turnovers: parseInt(gf[FIELDS.gameLog.turnovers], 10) || 0,
     whatWentWell: gf[FIELDS.gameLog.whatWentWell] || '',
     whatToWorkOn: gf[FIELDS.gameLog.whatToWorkOn] || '',
   };
@@ -357,8 +359,8 @@ function renderGameSessionEditForm(host, player) {
     const minutesStep = stepper(gameState.minutes, { min: 0, max: 120, label: 'minutes' }, (v) => (gameState.minutes = v));
     const reboundsStep = stepper(gameState.rebounds, { min: 0, max: 50, label: 'rebounds' }, (v) => (gameState.rebounds = v));
     const assistsStep = stepper(gameState.assists, { min: 0, max: 50, label: 'assists' }, (v) => (gameState.assists = v));
-    const stealsInput = h('input', { class: 'text-input', inputmode: 'numeric', value: gameState.steals, oninput: (e) => (gameState.steals = e.target.value) });
-    const turnoversInput = h('input', { class: 'text-input', inputmode: 'numeric', value: gameState.turnovers, oninput: (e) => (gameState.turnovers = e.target.value) });
+    const stealsStep = stepper(gameState.steals, { min: 0, max: 20, label: 'steals' }, (v) => (gameState.steals = v));
+    const turnoversStep = stepper(gameState.turnovers, { min: 0, max: 20, label: 'turnovers' }, (v) => (gameState.turnovers = v));
     const wentWellArea = textArea('What went well?', gameState.whatWentWell, (v) => (gameState.whatWentWell = v));
     const workOnArea = textArea('What to work on?', gameState.whatToWorkOn, (v) => (gameState.whatToWorkOn = v));
 
@@ -367,8 +369,8 @@ function renderGameSessionEditForm(host, player) {
     host.appendChild(fieldRow('Minutes Played', minutesStep));
     host.appendChild(fieldRow('Rebounds', reboundsStep));
     host.appendChild(fieldRow('Assists', assistsStep));
-    host.appendChild(fieldRow('Steals', stealsInput));
-    host.appendChild(fieldRow('Turnovers', turnoversInput));
+    host.appendChild(fieldRow('Steals', stealsStep));
+    host.appendChild(fieldRow('Turnovers', turnoversStep));
 
     host.appendChild(h('h3', { class: 'section-heading', text: 'Shot Chart' }));
     if (rows.length === 0) {
@@ -401,8 +403,8 @@ function renderGameSessionEditForm(host, player) {
         [FIELDS.gameLog.whatWentWell]: gameState.whatWentWell,
         [FIELDS.gameLog.whatToWorkOn]: gameState.whatToWorkOn,
       };
-      if (gameState.steals) fields[FIELDS.gameLog.steals] = gameState.steals;
-      if (gameState.turnovers) fields[FIELDS.gameLog.turnovers] = gameState.turnovers;
+      fields[FIELDS.gameLog.steals] = String(gameState.steals);
+      fields[FIELDS.gameLog.turnovers] = String(gameState.turnovers);
 
       const gameOk = await updateExistingRecord({ localId: lastGame.session.localId, tableId: lastGame.session.tableId }, fields);
       if (!gameOk) {

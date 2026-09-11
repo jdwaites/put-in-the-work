@@ -338,11 +338,13 @@ const GameScreen = {
       const minutesStep = stepper(draft.minutes, { min: 0, max: 120, label: 'minutes' }, (v) => { draft.minutes = v; persist(); renderSubmitBar(); });
       const reboundsStep = stepper(draft.rebounds, { min: 0, max: 50, label: 'rebounds' }, (v) => { draft.rebounds = v; persist(); renderSubmitBar(); });
       const assistsStep = stepper(draft.assists, { min: 0, max: 50, label: 'assists' }, (v) => { draft.assists = v; persist(); renderSubmitBar(); });
-      // Steals/Turnovers are singleLineText on the live base (not number),
-      // so free-entry inputs here rather than steppers — see FIELDS.gameLog
-      // in js/data.js.
-      const stealsInput = h('input', { class: 'text-input', inputmode: 'numeric', placeholder: 'e.g. 2', value: draft.steals, oninput: (e) => { draft.steals = e.target.value; persist(); renderSubmitBar(); } });
-      const turnoversInput = h('input', { class: 'text-input', inputmode: 'numeric', placeholder: 'e.g. 3', value: draft.turnovers, oninput: (e) => { draft.turnovers = e.target.value; persist(); renderSubmitBar(); } });
+      // Steals/Turnovers are singleLineText on the live base (not number) —
+      // that only affects what gets written at submit time (stringified);
+      // the input itself is a real stepper like every other counting stat
+      // here, not a free-text box, so it gets the same tap-target/clamping
+      // treatment as Minutes/Rebounds/Assists.
+      const stealsStep = stepper(draft.steals, { min: 0, max: 20, label: 'steals' }, (v) => { draft.steals = v; persist(); renderSubmitBar(); });
+      const turnoversStep = stepper(draft.turnovers, { min: 0, max: 20, label: 'turnovers' }, (v) => { draft.turnovers = v; persist(); renderSubmitBar(); });
       const wentWellArea = textArea('What went well?', draft.whatWentWell, (v) => { draft.whatWentWell = v; persist(); renderSubmitBar(); });
       const workOnArea = textArea('What to work on?', draft.whatToWorkOn, (v) => { draft.whatToWorkOn = v; persist(); renderSubmitBar(); });
 
@@ -351,8 +353,8 @@ const GameScreen = {
       formHost.appendChild(fieldRow('Minutes Played', minutesStep));
       formHost.appendChild(fieldRow('Rebounds', reboundsStep));
       formHost.appendChild(fieldRow('Assists', assistsStep));
-      formHost.appendChild(fieldRow('Steals', stealsInput));
-      formHost.appendChild(fieldRow('Turnovers', turnoversInput));
+      formHost.appendChild(fieldRow('Steals', stealsStep));
+      formHost.appendChild(fieldRow('Turnovers', turnoversStep));
       formHost.appendChild(fieldRow('What Went Well', wentWellArea));
       formHost.appendChild(fieldRow('What To Work On', workOnArea));
 
@@ -387,7 +389,7 @@ const GameScreen = {
 
     function hasAnyData(draft) {
       return draft.rows.length > 0 || !!draft.opponent || draft.minutes > 0 || draft.rebounds > 0
-        || draft.assists > 0 || !!draft.steals || !!draft.turnovers || !!draft.whatWentWell || !!draft.whatToWorkOn;
+        || draft.assists > 0 || draft.steals > 0 || draft.turnovers > 0 || !!draft.whatWentWell || !!draft.whatToWorkOn;
     }
 
     function renderSubmitBar() {
@@ -419,11 +421,15 @@ const GameScreen = {
           [FIELDS.gameLog.points]: points,
           [FIELDS.gameLog.rebounds]: draft.rebounds,
           [FIELDS.gameLog.assists]: draft.assists,
+          // Steals/Turnovers are singleLineText on the live base — stringify
+          // the stepper's numeric value, and write it unconditionally (a
+          // real 0 is a deliberately-counted stat now, not "not entered",
+          // same as Minutes/Rebounds/Assists above).
+          [FIELDS.gameLog.steals]: String(draft.steals),
+          [FIELDS.gameLog.turnovers]: String(draft.turnovers),
           [FIELDS.gameLog.whatWentWell]: draft.whatWentWell,
           [FIELDS.gameLog.whatToWorkOn]: draft.whatToWorkOn,
         };
-        if (draft.steals) fields[FIELDS.gameLog.steals] = draft.steals;
-        if (draft.turnovers) fields[FIELDS.gameLog.turnovers] = draft.turnovers;
 
         Queue.add({
           localId: gameLocalId,
